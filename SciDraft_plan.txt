@@ -1,0 +1,1681 @@
+
+====================================================================PROJECT DESCRIPTIONS=================================================================
+
+Project Name:
+
+SciDraft (LabReport Writer) — a serious academic assistant for lab report drafting.
+
+Description:
+
+Build a modern, professional, mobile-first web application called SciDraft – Lab Report Writer, a serious academic aid that helps university students generate structured lab reports from their lab manuals and experiment results.
+
+How it works:
+
+- Students upload the lab manual (PDF/Word/Image).
+- The content in the uploads are read an given out for review.
+- Enter guided observation/result fields (or upload CSV/photo of tables).
+- Generate draft, gives Quick Draft = 2~3 pages.
+- Generate Full Report gives a Detailed Report = ~3–4 pages.
+- Payment Ksh 50 for Drafted, ksh 100 for full report.
+- Exports: clean PDF and editable DOCX. The product is positioned as a serious academic aid (not a cheating tool). 
+
+
+Detailed  Work plan.
+
+High-level steps:
+1) Inputs & auth:
+   - Student selects Subject → Unit → Practical (or uploads manual)
+   - Student enters results JSON and uploads supporting images/drawings
+   - All inputs are stored in Supabase storage with metadata
+
+2) Template selection & Preprocessing:
+   - If manual_template exists for the chosen Practical and is approved, fetch parsed_text
+   - If student uploaded new manual:
+       - Run OCR (Tesseract) and parsing (pdfjs)
+       - Generate a SHA-256 hash of the file and compare to existing hashes
+       - Store as `manual_templates.pending` (approved=false) until admin review
+   - Extract key manual excerpts: aim, procedure steps, reagent list sections; store small excerpts to include in the prompt (max N characters to avoid token blow-up)
+
+3) Normalization & Results processing:
+   - Normalize measurement units (e.g., g, ml, °C) and convert to canonical units where necessary
+   - Run deterministic numeric calculations server-side (not by the LLM) and create explicit calculation steps JSON
+   - Prepare `results_json` (measurements array, obs text, images links)
+
+4) Subject-specific prompt selection:
+   - Choose prompt based on Subject (Biology / Chemistry / Physics) from `prompts` table (admin editable)
+   - Build prompt envelope: system prompt (subject), manual excerpt, deterministic results JSON, student notes, rubric (if uploaded)
+
+5) LLM invocation (GPT-4o):
+   - Provide strict instructions to output a JSON with the 10 sections as keys
+   - Enforce constraints: don't invent values; mark unknowns as `[STUDENT INPUT REQUIRED]`; do not fabricate DOI/page numbers
+   - Max retries: 2 with different temperature settings; if still malformed, send human-friendly error
+
+6) Post-processing:
+   - Validate JSON structure, run length check and ensure required sections present
+   - Insert server-side computed calculation steps in Results preface
+   - If drawings/images exist, insert marker text (e.g., "[Insert drawing: filename.png]") in appropriate places
+   - Save `draft_json` into `reports` table
+
+7) Preview & Edit:
+   - Render draft into HTML for editor (left pane)
+   - Flag any `[STUDENT INPUT REQUIRED]` spots and show them in the right pane
+   - Allow inline edit; when student edits critical numeric fields, trigger recompute check
+
+8) Export rendering:
+   - For paid unlock: queue export job (Puppeteer for PDF; docx.js for DOCX)
+   - Attach "AI-assisted" footer on exports if required by policy
+   - Store export artifacts in Supabase with signed short-lived URLs
+
+
+
+The app must:
+Accept lab manual uploads (PDF/DOCX/IMG)
+
+Provide guided forms for student results and observations.
+
+Process inputs using GPT-4o to generate a draft report in 10 strict sections: Title → Introduction → Objectives → Materials/Reagents → Procedures → Results → Discussion → Recommendations → Conclusion → References.
+
+Allow inline editing before export.(v2)
+
+Export reports as PDF and DOCX.
+
+Support free (watermarked) and paid (clean) exports.
+
+Securely store files in Supabase with retention policies.
+
+Provide student-first UX, institutional credibility, and academic framing.
+
+
+==========================================================================UI/UX=============================================================================
+
+--Coloring Scheme
+
+Background: Soft Off-White #F8FAFC (clean, not harsh white, keeps it breathable).
+
+Primary Accent: Deep Sky Blue #00BFFF (ties to TriCre8, feels scientific + energetic).
+
+Secondary Accent: Orange Red #FF4500 (for contrast + action highlights).
+
+Header Text: Dark Gray #222222 (serious, sharp, academic authority).
+
+Footer Text: Muted Gray #B0BEC5 (less emphasis, still readable).
+
+Page Text (body): Near Black #1A1A1A (clean, maximum legibility).
+
+Sub Text / Captions: Medium Gray #6B7280 (soft tone, doesn’t compete with main text).
+
+Buttons:
+
+Primary Button: Green #0DB02B (action = go, ties to TriCre8).
+
+Hover State: Darker Green #0A8A21.
+
+Secondary Button: Deep Sky Blue #00BFFF outline, white fill.
+
+Sections:
+
+Hero Section: Light Gray-Blue #EDF2F7 (fresh academic feel).
+
+Alt Sections (to break flow): White #FFFFFF.
+
+Pop-outs / Cards: White #FFFFFF with soft shadow (rgba(0,0,0,0.05)) and rounded corners.
+
+Overlay Sections / Modals: Semi-transparent Black overlay rgba(0,0,0,0.5) with content box in white.
+
+Highlights / Links: Deep Sky Blue #00BFFF (consistent with primary).
+
+Error / Alerts: Red #E60000 (TriCre8 brand red).
+
+Success States: Green #0DB02B (consistent with buttons).
+
+
+--Typography
+
+Headings (H1–H3):
+
+Font: Inter Bold or Poppins SemiBold
+
+Weight: 600–700
+
+Style: Clean, modern sans-serif with good academic presence.
+
+Example: H1 ~ 36–42px, H2 ~ 28–32px, H3 ~ 22–26px.
+
+Body Text:
+
+Font: Inter Regular or Roboto
+
+Weight: 400
+
+Size: 16–18px for comfortable reading.
+
+Subtext / Captions:
+
+Font: Inter/Roboto Light
+
+Size: 13–14px
+
+Color: Medium Gray #6B7280.
+
+Special Notes / Highlights:
+
+Italics or a slight color accent (Deep Sky Blue) for emphasis.
+
+
+--Animations
+
+Hero Headline Transition: Smooth text fade/slide (e.g., fade in + upward slide every 2–3s).
+
+Buttons: Subtle scale-up + color shift on hover (never too flashy).
+
+Cards/Sections: Soft fade-in on scroll with a 100–200ms stagger.
+
+Pop-ups/Overlays: Quick fade-in + slight zoom effect (90% → 100%).
+
+Micro-interactions only — fade and scale; limit to 120ms/180ms transitions to avoid CPU strain on phones
+
+Loading States: Academic-styled spinner (blue + white, thin line stroke).
+
+(Rule: animations should be minimal, professional, feel like “flow,” not gimmicks.)
+
+
+--Interactivity
+
+Buttons: Clear hover + active states (color shift, slight shadow).
+
+Links: Underline only on hover, color accent in Deep Sky Blue.
+
+Forms: Inputs with subtle border glow in Primary Blue on focus.
+
+Sections: Accordion-style expand for FAQs or explanations.
+
+Reports Preview: Click-to-expand with smooth slide-down animation.
+
+
+--Iconography
+
+Style: Line-based, clean, minimalist (think Lucide Icons or Feather Icons).
+
+Primary Icons: Science-related (microscope, beaker, molecule, book, lab report).
+
+Supporting Icons: Education (graduation cap, document, clock for deadlines).
+
+Usage:
+
+Accent icons in blue/orange-red to guide attention.
+
+Keep sizes consistent (20–24px for inline, 40px for hero/sections).
+
+
+--Component rules:
+
+- Buttons: rounded corners (6–8px), primary CTA in teal, secondary in muted slate
+
+- Form fields: clear labels above fields, helper text below in muted slate
+
+- Stepper: sticky progress bar for multi-step wizard on mobile
+ 
+- Accessibility: semantic HTML, alt text required, color contrast WCAG 3+ for text
+
+
+Page by Page Layouts:
+
+User Side:
+
+Flow: Landing Page → Signup/login page → Dashboard → Create Report → (1.Template Available - select unit & templates → Results | 2. No template - Upload manual → Naming the Practical → Review → Results) → Generate → 1.Draft - download | 2.Full Report → View & Edit V Download. 
+
+1. Landing Page
+
+ -----------------------------------------------------
+|  [Logo SciDraft]   [Other services] [Create Report] |
+ -----------------------------------------------------
+|        Background Image + "Headline Text"           |
+|                                                     |
+|               [CTA-Create Report]                   |
+|                                                     |
+|                                                     |
+|-----------------------------------------------------|
+|                Pain Points section                  |
+|     [Your Current Problem] |   [Our Solution]       |
+|   -                        |  -                     |
+|   -                        |  -                     |
+|   -                        |  -                     |
+ -----------------------------------------------------
+|                How It Works                         |
+| Step 1    Step 2   Step 3  Step 4      Step 5       |
+|-----------------------------------------------------|
+|   Footer: About | Privacy | Terms| FAQs | Contact   |
+ -----------------------------------------------------
+
+2. Signup/Login Page:
+
+-----------------------------------------------------
+|               [SciDraft logo]                     |
+|             Login    |    SignUp                  |
+| ------------------------------------------------- |
+|                  [Fields]                         |
+|-------------------------------------------------- |
+|                                                   |
+|             [Getin/Register In]                   |
+|-------------------------------------------------- |
+|                [sub text]                         |
+|---------------------------------------------------|
+
+
+
+3. User Dashboard Page
+
+ -----------------------------------------------------
+| Sidebar:  [Reports]       [New Report]    [Settings]
+ -----------------------------------------------------
+| Welcome, [Student Name]                             |
+|                                                     |
+| Reports List:                                       |
+| --------------------------------------------------- |
+| | Title         | Status    | Date   | [Open]     | |
+| | Chem Exp #1   | Draft     | 01/09  |            | |
+| | Bio Exp #2    | Full Report| 28/08 | [Download]|  |
+| --------------------------------------------------- |
+| [+ New Report] button                               |
+ -----------------------------------------------------
+
+
+4. New Report
+
+ Stepper (top): 1.Upload → 2.Review → 3.Results → 4.Generate
+
+i. If there is a template:
+-------------------Select Science---------------------|
+|                                                     |
+|                [Drop Down Selection]                |
+|-----------------------------------------------------|
+|                                                     |
+|              [Templates from supabase]              |
+|                      [Template 1]                   |
+|                      [Template 2]                   |
+|                      [Template 3]                   |
+|-----------------------------------------------------|
+|------[button - opens results entry section]---------|
+                        |
+                       \|/
+------------------Results Upload----------------------
+|                                                    |
+|                     [fields]                       |
+|                     [fields]                       |
+|                     [fields]                       |
+-----------------------------------------------------
+
+ii. If no template found
+
+ Step 1: Upload
+ -----------------------------------------------------
+| Drag & drop PDF/DOCX/IMG or [Browse Files]          |
+ -----------------------------------------------------
+
+ Step 2: Review Manual Extract
+ -----------------------------------------------------
+| (Excerpt from PDF/DOCX/IMG shown here)              |
+ -----------------------------------------------------
+[Retry button]
+
+[Subject] [Unit] [Practical Number] [Practical Title]
+
+ Step 3: Results Entry
+ -----------------------------------------------------
+| Measurements: [   ] [   ] [Add more]                |
+| Observations: [Textarea]                            |
+| Notes:        [Textarea]                            |
+ -----------------------------------------------------
+ [Next →]
+
+ Step 4: Generate Draft
+ -----------------------------------------------------
+| Loading Spinner → "Generating report…"              |
+| Then: [View Draft]                                  |
+ -----------------------------------------------------
+
+5. Draft Viewer:
+
+ -----------------------------------------------------
+| Title:                                              |
+|  --content text                                     |
+| Introduction:                                       |
+|  --content text                                     |
+| Objectives:                                         |
+|  --content text                                     |
+| Materials:                                          |
+|  --content text                                     |
+| ...all steps...                                     |
+ -----------------------------------------------------
+| Instruction to the leaner:                          |
+| - instruction 1                                     |
+| - instruction 2                                     |
+| - instruction 3                                     |
+ -----------------------------------------------------
+| Sticky bottom bar: [Export PDF] [Get Full Report]   |
+ -----------------------------------------------------
+
+5. Report Viewer & Editor:
+
+ -----------------------------------------------------
+| Title:                                              |
+|  --Editable text   {rewrite with AI}                |
+| Introduction:                                       |
+|  --Editable text                                    |
+| Objectives:                                         |
+|  --Editable text                                    |
+| Materials:                                          |
+|  --Editable text                                    |
+| ...all steps...                                     |
+ -----------------------------------------------------
+| Instruction to the leaner:                          |
+| - instruction 1                                     |
+| - instruction 2                                     |
+| - instruction 3                                     |
+ -----------------------------------------------------
+| Sticky bottom bar: [Export PDF] [Export DOCX]       |
+ -----------------------------------------------------
+
+
+
+Admin UI Layout:
+
+
+Sidebar nav: Dashboard, Users, Reports, Payments, Feedback, Prompts, System, Admins.
+
+Topbar: Search, Profile dropdown, Notifications.
+
+Data tables with filters, sort, pagination.
+
+Charts: use Recharts or Chart.js.
+
+Color scheme:
+
+Background: light gray #F9FAFB (to distinguish from student dark mode).
+
+Primary: TriCre8 teal #0FB9A2.
+
+Danger: red #DC2626.
+
+Mobile: collapsible sidebar, tables scrollable.
+
+--Admin Dashboard Home:
+Sections:
+
+Key Metrics (cards at top):
+
+Total active users (last 30 days).
+
+Total paying users (conversion %).
+
+Reports generated (last 7 days).
+
+Revenue (month-to-date).
+
+
+Graphs/Charts:
+
+Daily new signups (line chart).
+
+Drafts generated vs. exports (bar chart).
+
+Revenue trend (line chart).
+
+
+Alerts:
+
+Failed payments (last 24h).
+
+Failed exports (last 24h).
+
+API usage quota (if nearing limit).
+
+ -----------------------------------------------------
+| Sidebar: Dashboard | Users | Reports | Payments Settings |
+ -----------------------------------------------------
+| Metrics cards (4):                                 |
+| - Total Users | Total Paying | Reports Last 7d | Revenue|
+ -----------------------------------------------------
+| Graphs: Signups | Reports vs Exports | Revenue Trend |
+ -----------------------------------------------------
+| Alerts: 2 failed payments today, 1 failed export     |
+ -----------------------------------------------------
+
+
+--User Mangement
+
+Users Management Page
+
+Purpose: full visibility into student and lecturer accounts.
+
+- Table view:
+
+Columns: ID, email, role, active plan, expiry date, reports count, last login.
+
+Actions per row: Suspend user, Reset plan, Change role (student → lecturer), Delete account.
+
+- Filters:
+
+Filter by role (student/lecturer).
+
+Filter by plan (free, day pass, monthly, premium).
+
+Search by email.
+
+
+User detail page:
+
+Profile summary (email, role, join date).
+
+Reports history (list of drafts/exports).
+
+Payment history.
+
+Support tickets / feedback left.
+
+ -----------------------------------------------------
+| Search [________]  Filter: [role] [plan]            |
+ -----------------------------------------------------
+| Table:                                              |
+| ID   | Email         | Role    | Plan     | Reports |
+| --------------------------------------------------- |
+| #101 | alice@uni.ac  | student | monthly  |   5     |
+| #102 | bob@uni.ac    | free    | free     |   1     |
+ -----------------------------------------------------
+| Row Actions: [Suspend] [Change Role] [Delete]       |
+ -----------------------------------------------------
+
+
+--Report Management
+Reports Management Page
+
+Purpose: track report generation and troubleshoot failures.
+
+- Table view:
+
+Columns: Report ID, user email, course, status (draft/exported), created date.
+
+Actions: View draft JSON, View export files, Re-trigger export, Delete report.
+
+- Filters:
+
+Filter by status (draft only, exported, failed).
+
+Filter by course (Chemistry, Biology, Physics).
+
+- Analytics widget:
+
+Avg. reports per active student.
+
+Distribution by course.
+ -----------------------------------------------------
+| ReportID | User Email | Course | Status   | Date    |
+| --------------------------------------------------- |
+| #501     | alice@...  | Chem   | Draft    | 01/09   |
+| #502     | bob@...    | Bio    | Exported | 28/08   |
+ -----------------------------------------------------
+| Row Actions: [View Draft] [Re-export] [Delete]      |
+ -----------------------------------------------------
+
+
+--Payments
+Payments & Revenue Page
+
+Purpose: monitor cashflow.
+
+- Table view:
+
+Columns: Payment ID, user email, amount, plan, status (pending/success/failed), date.
+
+Actions: Retry webhook (if failed), Refund (manual action).
+
+- Revenue overview:
+
+Monthly revenue total.
+
+Breakdown by plan (Day Pass vs. Monthly vs. Premium).
+
+Failed payments % (last 30 days).
+
+- Integration health:
+
+Pesaflux API status (success/failed callbacks).
+
+Last webhook timestamp.
+ -----------------------------------------------------
+| PaymentID | User | Amount | Method | Status | Date  |
+| --------------------------------------------------- |
+| #9001     | alice@... | 299 | mpesa | success | 01/09|
+| #9002     | bob@...   | 50  | mpesa | failed  | 31/08|
+ -----------------------------------------------------
+| Row Actions: [Retry Webhook] [Refund]               |
+ -----------------------------------------------------
+
+--Feedback
+Purpose: see what users think, spot issues.
+
+-  Feedback list:
+
+Columns: Report ID, user email, rating (1–5), comment, date.
+
+Actions: Mark as “resolved,” escalate to support.
+
+Support requests (if added later):
+
+Table: User, issue summary, status (open/in progress/closed).
+
+- Analytics:
+
+Avg. rating (last 30 days).
+
+Common words in comments (word cloud).
+ -----------------------------------------------------
+| ReportID | User       | Rating | Comment            |
+| --------------------------------------------------- |
+| #501     | alice@...  |   4    | "Clean export"     |
+| #502     | bob@...    |   2    | "Draft missed..."  |
+ -----------------------------------------------------
+
+--Settings
+Prompt & AI Settings Page
+
+Purpose: control the AI without touching backend.
+
+Sections:
+
+Current system prompt (editable text area).
+
+Version history (log of changes with timestamp + admin name).
+
+Add new prompt variant (e.g., Chemistry vs Biology).
+
+Test run: paste sample input → get preview → approve before save.
+
+
+
+--System Health Page
+
+Purpose: backend & worker monitoring.
+
+Widgets:
+
+paymets- enable/disable, change price for draft, change price for full report
+
+Supabase storage usage.
+
+Alerts:
+
+If queue > threshold → red flag.
+
+If API error rate > 5% → red flag.
+
+
+
+--Admin Roles & Access Page
+
+Purpose: manage fellow admins.
+
+Table:
+
+Admin email, role (super admin / support admin), last login.
+
+Actions: Add admin, Remove admin, Change role.
+
+Security:
+
+Require 2FA for all admins.
+
+Session timeout 30 minutes.
+
+ -----------------------------------------------------
+| promptID |     prompt  |    Science      | Date    |
+| --------------------------------------------------- |
+| #501     | you ar...  | Chem              | 01/09   |
+| #502     | bob ret... | Bio               | 28/08   |
+ -----------------------------------------------------
+| Row Actions: [View] [Edit] [Delete]                 |
+ -----------------------------------------------------
+
+Manual Templates
+ -----------------------------------------------------
+| templateID | User | Subect | Unit | Practical number | Practical tiltle| Status | Date  |
+| --------------------------------------------------------------------------------------- |
+ -----------------------------------------------------
+| Row Actions: [Approve] [Delete] [Edit] [merge]      |
+ -----------------------------------------------------
+
+Strict Admin Rules
+
+Only admins with role=admin in Supabase allowed.
+
+All CRUD actions log into admin_logs table: (admin_id, action, target_id, timestamp).
+
+No bulk delete without confirmation modal.
+
+Payments: only super admins can issue refunds.
+
+Prompts: edits must require confirmation + version rollback option.
+
+Database Additions for Admin
+
+admin_logs: id, admin_id, action, target_type, target_id, timestamp.
+support_requests (optional future): id, user_id, issue, status, created_at.
+
+============================================================================PAGE BY PAGE COPY WRITING====================================================
+
+1. Landing Page
+
+--Header: Logo + nav (Other Service, Create Report).
+
+--Hero section: Transiting Headline Texts: 
+“Struggling to explain what your results even mean?, Get it done here”, 
+"Stuck staring at a blank lab report? Draft it here...", 
+"We help you Draft, you write it down...".
+
+CTA: “Draft Your Report” (leads to signup/login).
+
+--Pain points: explains pain points and how we solve them.
+"Your Current Problems": 
+1.Writing lab reports eats up hours leading to late reports submission. 
+2.Formatting and structure stress you more than the actual science. 
+3.You lose marks because your discussion and analysis sound unclear. 
+4.Juggling multiple reports leaves you overwhelmed and behind.
+
+"Our Solution": 
+1.SciDraft drafts structured reports in minutes, saving you time. 
+2.We turn raw results into clear, professional explanations. 
+3.Clean, consistent formatting handled automatically. 
+4.Smart tools to keep all your reports organized and stress-free.
+
+--How it Works:
+1.Select your Unit
+Choose your Unit either Chemistry, Biology or Physics.
+
+2. Upload or Enter Your Work
+Drop in your lab manual, results/observations.
+
+3. AI Draft Generation
+SciDraft instantly structures your input into a clear, professional lab report draft.
+
+3. Smart Review & Edits
+Check the draft, tweak sections, and refine the tone to match your requirements.
+
+4. Export & Write
+Download your polished report in the format you need — ready for putting down on Lab Booklets.
+
+CTA: “Draft Your Report” (leads to signup/login).
+
+--Footer: About, Terms, Privacy, FAQs, Contact.
+
+--About Us
+
+Who We Are
+SciDraft is a student-first platform designed to make scientific report writing easier, clearer, and faster. Built by a team of innovators at TriCre8, we combine AI with academic structure to help students focus on learning instead of formatting.
+
+Our Mission
+To empower students and young researchers by removing the stress of lab reports, giving them tools that save time and improve clarity.
+
+Our Vision
+A world where students spend more time exploring science and less time wrestling with paperwork.
+
+Why SciDraft
+
+Tailored for science students.
+
+AI-powered yet academically reliable.
+
+Built with local and global learners in mind.
+
+Terms
+
+Acceptance of Terms
+By using SciDraft, you agree to follow these terms and conditions.
+
+Use of Service
+
+SciDraft is intended for educational support, not to replace your own work.
+
+You are responsible for reviewing and editing drafts before submission.
+
+Account Responsibility
+Keep your login credentials safe. You’re responsible for any activity on your account.
+
+Limitations
+We provide drafts and suggestions. Academic integrity and compliance with your institution’s rules remain your responsibility.
+
+Updates
+Terms may change from time to time. We’ll notify you of significant updates.
+
+--Privacy
+
+Data We Collect
+
+Information you provide (like notes, lab data, or login details).
+
+Usage data (how you use SciDraft, to improve performance).
+
+How We Use Data
+
+To generate drafts and suggestions.
+
+To improve our tools and user experience.
+
+To keep your account secure.
+
+Your Privacy Rights
+
+We do not sell personal data.
+
+You can request data deletion at any time.
+
+Security
+We apply industry-standard measures to keep your information safe.
+
+--FAQs:
+
+1. What is SciDraft?
+SciDraft is an AI-powered tool that helps students turn lab results and notes into structured academic drafts.
+
+2. Will SciDraft write my entire report for me?
+No. SciDraft creates structured drafts and suggestions, but you’re expected to review, refine, and submit responsibly.
+
+3. Is my data safe?
+Yes. Your inputs are only used to generate drafts and improve the platform. We don’t share your data.
+
+4. Can I use SciDraft for any subject?
+It’s optimized for science disciplines (biology, chemistry, physics), but the structure can support other academic work too.
+
+5. Does it guarantee better grades?
+SciDraft makes your reports clearer and more structured. Final results depend on your effort, accuracy, and institution’s standards.
+
+Is using SciDraft considered cheating?
+No. SciDraft is a study and drafting aid — like a calculator for numbers or Grammarly for grammar. It helps you organize, format, and explain your results, but the ideas, accuracy, and final submission are still yours. Using SciDraft responsibly supports learning, not shortcuts it.
+
+
+2. Sigup/Login Page
+
+Logo: SciDraft logo
+Login:
+Title text:Welcome Back - Login and do more.
+Email & Password Fields with show password
+Button: GetIn
+
+Signup:
+Title text: Welcome to SciDraft - Smarter reports, stronger grades.
+Full Name, Email, Phone number, Course, Password(with show password)
+Button: Signup
+
+3. User Dashboard
+
+Sidebar: Reports, New Report, Billing, Settings.
+
+- Header: "My Reports" (subtext: "Drafts and full reports you created")
+
+- Stats: "Reports this semester: X | Full Reports unlocked: Y"
+
+- Main area: List of previous reports (title, date, status, export links).
+
+- Table columns: Title | Unit | Practical | Status | Created | Actions
+
+- CTA: “+ New Report.”
+
+Empty state copy: "You haven't created any reports. Start with 'New Report'
+
+New Report Flow (multi-step form in as shown on the UI):
+
+- Stepper header: "New Report — Step {n} of 4"
+
+- Step 1 — Select Subject → Unit → Practical Title
+
+  - Label: "Choose your Subject/Unit/Practical"
+
+  i) If template is available:
+
+   - Dropdown labels: Subject (Biology / Chemistry / Physics); Unit (search); Practical (list)
+
+    - If matching templates found: header: "Existing templates found for {Unit}"
+
+    - Microcopy: "Select a template if it matches your manual — this skips manual upload and saves time."
+
+    - Buttons: [Use this template]
+
+   - Step 2 — Enter Results & Observations
+     - Fields: "Observations" (textarea), "Upload drawing/diagram" (file). "Additional notes"(text)
+       Helper: "Upload microscope sketches or chromatography plates as images."
+     
+   - Step 3 — Generate Draft
+     - CTA: [Generate Draft — Free Preview]
+     - Progress microcopy: "Generating a draft from the manual and your results — this may take up to 20 seconds."
+
+   - Step 4. Draft Preview (Free)
+    - Header: "Draft Preview — {Report Title}"
+    - Microcopy at top: "This is a FREE preview. Full report includes detailed Results, Discussion, Recommendations and References."
+    - Sections present in free preview: Title, Introduction, Objectives, Materials, Procedures, Results, Discussion(guide), Conclusion(guide) and 2 References.
+ "[Full report includes detailed Results and Discussion — unlock to reveal the full text or continue editing your own answers.]"
+
+- Buttons: [Continue with Draft (Free)] [Unlock Full Report — KSh 50]
+
+- Unlock microcopy: "Unlock full 10-section report and export options."
+
+
+ii) If template not found:
+
+- Upload microcopy: "No matching template? Upload your manual. File types: PDF, DOCX, JPG, PNG. Max 10MB."
+
+Step 1: [Upload my manual]
+
+  - Enforcement microcopy: "If you upload a new manual, enter Unit Code, Practical Number and Practical Title exactly as printed (UPPERCASE). Your upload will be reviewed by admins before it becomes a shared template."
+
+  - Step 2 — Review Extracted Procedure
+    - Show parsed procedure excerpt from manual; highlight lines LLM uses for interpretation. Buttons: [Edit manual excerpt] [Proceed]
+
+   - Step 3 — Enter Results & Observations
+     - Fields: "Observations" (textarea), "Upload drawing/diagram" (file). "Additional notes"(text)
+       Helper: "Upload microscope sketches or chromatography plates as images."
+
+   - Step 4 — Generate Draft
+    - CTA: [Generate Draft — Free Preview]
+    - Progress microcopy: "Generating a draft from the manual and your results — this may take up to 20 seconds."
+
+   - Step 5. Draft Preview (Free)
+    - Header: "Draft Preview — {Report Title}"
+    - Microcopy at top: "This is a FREE preview. Full report includes detailed Results, Discussion, Recommendations and References."
+    - Sections present in free preview: Title, Introduction, Objectives, Materials, Procedures, Results, Discussion(guide), Conclusion(guide) and 2 References.
+ "[Full report includes detailed Results and Discussion — unlock to reveal the full text or continue editing your own answers.]"
+
+- Buttons: [Continue with Draft (Free)] [Unlock Full Report — KSh 50]
+
+- Unlock microcopy: "Unlock full 10-section report and export options."
+
+
+For Full Report unlock generation:
+
+F. Unlock / Paywall Modal
+- Title: "Unlock Full Report"
+- Body: "Get the full 10-section report with complete Results, Discussion, Recommendations and References."
+- Options listed: 
+  - "One-time Full Report — KSh 50"
+  - "3-Report Pack — KSh 120"
+- Buttons: [Pay with M-Pesa] [Cancel]
+- Payment microcopy: "We use Pesaflux to securely process STK push on your phone. You’ll receive an M-Pesa prompt. Unlock happens after webhook confirmation."
+- Failure microcopy: "Payment not confirmed. Try again or contact support."
+
+G. Draft Editor (Full unlocked)
+- Two-column layout on desktop: left = editable document; right = manual excerpt + flags + "AI Suggestions"
+- Each section header shows a small badge: "AI-assisted" (hover explains "This paragraph was drafted from manual and your results. Review and confirm.")
+- Inline edits allowed. When user edits, a small "Save changes" indicator appears.
+- Export bar (bottom sticky): [Export PDF] [Export DOCX] [Download Diagrams (zip)] - Filename (editable): {Course}{Experiment}{YourName}_{YYYYMMDD}.pdf
+- Export microcopy: "Export available after payment or if you have credit. Exports are stored for 90 days for free users."
+
+
+H. History / My Reports (Dashboard)
+- Each report shows tags: Draft Only / Full Report / Exported
+- Bulk actions: "Select multiple" → [Buy pack / Export / Delete]
+- Search/filter: by Unit Code, Practical Number, Subject, Status
+
+I. Settings & Profile
+- Fields: Name, Email, Phone, Preferred Payment Number (M-Pesa), Unit Affiliation (optional), Delete my data (button)
+- Microcopy: "Delete my data removes files and parsed content. Paid exports won’t be deleted from backup for 30 days for auditing."
+
+J. Pricing Page
+- Header: "Simple academic pricing"
+- Plan cards with features and CTA: [Buy Day Pass] [Buy Pack] [Buy Semester Pass]
+- FAQ item: "Is this cheating?" Answer: "No. SciDraft is an AI-assisted drafting tool. You must verify results and submit work with academic integrity. Exports include an 'AI-assisted' footer."
+
+K. Support & Feedback
+- Report-level feedback form: "How accurate was this draft?" Rating 1–5 + "What’s wrong?" textarea
+- Support contact: email/contact form & link to admin review queue
+
+L. Admin Pages copy (short)
+- Users page header: "Manage users"
+- Reports page header: "Manage reports"
+- Payments page header: "Payments & Pesaflux logs"
+- Prompts page header: "AI prompts & versions — edit with care. Every change is logged."
+- Manual templates page header: "Manual Templates — approve, edit, merge, deprecate"
+- Admin microcopy: "Action taken will be logged in Admin Logs. Use 'Approve as template' to make a manual available to students."
+
+=================================================================================AI PIPELINE===============================================================
+
+Prompt for Draft Report:
+
+You are an academic assistant helping a student draft a lab report.  
+Your task is to generate a structured report with all 10 required sections.  
+
+Rules:
+1. Sections Title, Introduction, Objectives/Aims, Materials & Reagents, Procedures, and Results:  
+   - Fill normally based on the manual excerpt and the student's results/observations.  
+   - Never invent results; use exactly what was provided.  
+
+2. Sections Discussion, Recommendations, and Conclusion:  
+   - Do NOT write the full text.  
+   - Instead, provide **guidance** on how the student should write.  
+   - Guidance must be specific to the experiment (e.g., “In your Discussion, reflect on why the observed color change occurred and compare with the expected reaction mechanism”).  
+   - Never give a completed essay here.  
+
+3. References:  
+   - Provide exactly **2 references only**:  
+     - The lab manual.  
+     - One standard textbook (formatted properly).  
+   - If missing, insert [STUDENT INPUT REQUIRED].  
+
+4. Formatting:  
+   - Output must strictly follow this structure:  
+     1. Title  
+     2. Introduction  
+     3. Objectives/Aims  
+     4. Materials & Reagents  
+     5. Procedures  
+     6. Results  
+     7. Discussion (Guidance only)  
+     8. Recommendations (Guidance only)  
+     9. Conclusion (Guidance only)  
+     10. References (only 2 sources)  
+
+5. Output format:  
+   - Return JSON with 10 keys, each key holding the relevant section.  
+   - If info is missing, write “[STUDENT INPUT REQUIRED]”.  
+
+
+Prompt for Full Report:
+
+
+1. Chemistry Lab Report Prompt:
+
+You are an academic assistant for Chemistry lab reports. Produce a JSON object with the following keys exactly:
+"title","introduction","objectives","materials","procedures","results_text","results_tables","discussion","recommendations","conclusion","references","flags"
+
+Rules and Constraints:
+- Use the provided lab manual text as the authoritative base.
+- Title - Be descriptive, concise, and specific. Include key variables or the main principle.Keep it short (often 5–12 words)
+- Introduction - Provide background theory. State the problem and purpose. Formulate a hypothesis. Structure from general to specific.
+- Objectives/Aims - Use a bulleted or numbered list. Start each point with a clear action verb. Ensure goals are specific and measurable.
+- Materials - List all equipment and reagents. Be specific with concentrations, sizes, and precision. Do not describe the use of the materials.
+- Procedure - Write in paragraph form, not a list. Use the past tense and passive voice. Be detailed enough for replication. Do copy the lab manual procedures - enhance them if they are not clear.
+- Results - Present raw and processed data objectively. Use clearly labeled tables and figures. Show sample calculations. Include qualitative observations. Do not interpret the data.
+- Discussion - Interpret the results and explain their significance. Compare findings to theoretical values. Analyze specific sources of error and their impact. Relate findings to objectives.
+- Recommendations - Suggest specific, practical improvements to the experimental design. Justify how these changes would yield better results.
+- Conclusion - Briefly restate the purpose and summarize the main quantitative findings. State whether the objectives were met. Do not introduce new information. You confirm the objectives.
+- References - Cite all sources used in the report. Follow the specific formatting style required (e.g., ACS, APA, CSE) consistently. Follow the standard format (Author name, Title, Year of publishing, Edition, Page number.)
+- Integrate the student’s results and observations exactly as entered; never invent values.
+- In "Materials & Reagents", clearly list all chemicals with correct names, concentrations, and equipment.
+- In "Procedures", write step-by-step instructions as outlined in the manual, including safety precautions.
+- In "Results", structure data as tables or equations where applicable; do not modify student measurements.
+- In "Discussion", explain reactions, color changes, yields, or deviations using chemical principles.
+- In "Recommendations", suggest improvements in lab technique, accuracy, or reagent handling.
+- In "Conclusion", summarize the key reaction observed and outcome of the experiment.
+- In "References", include the manual and standard chemistry textbooks. Mark unknown sources as [STUDENT INPUT REQUIRED].
+- If any required information is missing, insert [STUDENT INPUT REQUIRED].
+- Keep total length 900–1200 words.
+
+Output format:
+Return a JSON object with 10 keys corresponding to the sections.
+
+
+
+2. Biology Lab Report Prompt:
+
+You are an academic assistant for Biology lab reports. Produce a JSON object with the keys:
+"title","introduction","objectives","materials","procedures","results_text","results_tables","discussion","recommendations","conclusion","references","flags"
+
+Rules and Constraints:
+- Use the provided lab manual text as the authoritative base.
+- Title - Be descriptive, concise, and specific. Include key variables or the main principle.Keep it short (often 5–12 words)
+- Introduction - Provide background theory. State the problem and purpose. Formulate a hypothesis. Structure from general to specific.
+- Objectives/Aims - Use a bulleted or numbered list. Start each point with a clear action verb. Ensure goals are specific and measurable.
+- Materials - List all equipment and reagents. Be specific with concentrations, sizes, and precision. Do not describe the use of the materials.
+- Procedure - Write in paragraph form, not a list. Use the past tense and passive voice. Be detailed enough for replication. Do copy the lab manual procedures - enhance them if they are not clear.
+- Results - Present raw and processed data objectively. Use clearly labeled tables and figures. Show sample calculations. Include qualitative observations. Do not interpret the data.
+- Discussion - Interpret the results and explain their significance. Compare findings to theoretical values. Analyze specific sources of error and their impact. Relate findings to objectives.
+- Recommendations - Suggest specific, practical improvements to the experimental design. Justify how these changes would yield better results.
+- Conclusion - Briefly restate the purpose and summarize the main quantitative findings. State whether the objectives were met. Do not introduce new information. You confirm the objectives.
+- References - Cite all sources used in the report. Follow the specific formatting style required (e.g., ACS, APA, CSE) consistently. Follow the standard format (Author name, Title, Year of publishing, Edition, Page number.)
+- Integrate the student’s results and observations exactly as entered; never invent values.
+- In "Materials & Reagents", include biological specimens, stains, solutions, and equipment.
+- In "Procedures", describe preparation steps, microscope use, and observation methods accurately.
+- In "Results", highlight observable features, drawings, tables, or descriptions of organisms/specimens. Indicate missing diagrams with [STUDENT INPUT REQUIRED].
+- In "Discussion", explain biological processes observed (e.g., enzyme activity, photosynthesis, mitosis).
+- In "Recommendations", suggest improved observation techniques, sample handling, or repeat experiments for accuracy.
+- In "Conclusion", state the biological principle demonstrated and whether the objective was achieved.
+- In "References", include the manual and standard biology references. Mark missing citations as [STUDENT INPUT REQUIRED].
+- If any required information is missing, insert [STUDENT INPUT REQUIRED].
+- Keep total length 900-1200 words.
+
+Output format:
+Return a JSON object with 10 keys corresponding to the sections.
+
+
+3. Physics Lab Report Prompt:
+
+You are an academic assistant for Physics lab reports. Produce JSON with:
+"title","introduction","objectives","materials","procedures","results_text","results_tables","discussion","recommendations","conclusion","references","flags"
+
+Rules and Constraints:
+- Use the provided lab manual text as the authoritative base.
+- Title - Be descriptive, concise, and specific. Include key variables or the main principle.Keep it short (often 5–12 words)
+- Introduction - Provide background theory. State the problem and purpose. Formulate a hypothesis. Structure from general to specific.
+- Objectives/Aims - Use a bulleted or numbered list. Start each point with a clear action verb. Ensure goals are specific and measurable.
+- Materials - List all equipment and reagents. Be specific with concentrations, sizes, and precision. Do not describe the use of the materials.
+- Procedure - Write in paragraph form, not a list. Use the past tense and passive voice. Be detailed enough for replication. Do copy the lab manual procedures - enhance them if they are not clear.
+- Results - Present raw and processed data objectively. Use clearly labeled tables and figures. Show sample calculations. Include qualitative observations. Do not interpret the data.
+- Discussion - Interpret the results and explain their significance. Compare findings to theoretical values. Analyze specific sources of error and their impact. Relate findings to objectives.
+- Recommendations - Suggest specific, practical improvements to the experimental design. Justify how these changes would yield better results.
+- Conclusion - Briefly restate the purpose and summarize the main quantitative findings. State whether the objectives were met. Do not introduce new information. You confirm the objectives.
+- References - Cite all sources used in the report. Follow the specific formatting style required (e.g., ACS, APA, CSE) consistently. Follow the standard format (Author name, Title, Year of publishing, Edition, Page number.)
+- Integrate the student’s results and observations exactly as entered; never invent values.
+- In "Materials & Reagents", list apparatus clearly (stopwatch, lenses, pendulum, meter rule, power supply, etc.).
+- In "Procedures", describe experimental setup, circuit diagrams, or measurement steps in logical order.
+- In "Results", present numerical data in tables, include calculated values, and mark graphs/diagrams as [STUDENT INPUT REQUIRED].
+- In "Discussion", compare observed values with theoretical expectations, highlight sources of error, and explain discrepancies.
+- In "Recommendations", suggest improvements in measurement accuracy, apparatus calibration, or experimental design.
+- In "Conclusion", summarize whether objectives were achieved and the relationship between theory and experiment.
+- In "References", include the manual and standard physics references. Mark missing citations as [STUDENT INPUT REQUIRED].
+- If any required information is missing, insert [STUDENT INPUT REQUIRED].
+- Keep total length 900-1200 words.
+Output format:
+Return a JSON object with 10 keys corresponding to the sections.
+
+
+=============================================================SEO PRACTTICES==============================================================================
+
+SEO Practices
+
+Title tags: “SciDraft Academic Tool | Lab Report Writer.”
+
+Meta description: “Upload your lab manual, input results, and generate structured lab reports with AI assistance.”
+
+Mobile-first performance (fast load).
+
+Semantic HTML with schema.org “Educational Application.”
+
+Meta descriptions for key pages: Landing, Pricing, How it works, Support
+
+Use semantic HTML and JSON-LD schema.org: EducationalApplication + Product (pricing)
+
+Image alt text: mandatory for each screenshot and template preview
+
+Sitemap.xml, robots.txt included on launch
+
+Fast-first paint: prioritize critical CSS, lazy load images
+
+Social preview tags (OpenGraph) with problem-focused tagline and screenshot
+
+==========================================================================Security & Privacy================================================================
+
+Security & Privacy:
+
+HTTPS enforced everywhere.
+
+Supabase RLS (row-level security) to isolate user data.
+
+Encryption at rest for uploaded manuals & export artifacts
+
+Auto-delete: free-user raw files deleted after 90 days (exports kept for 30 days in backups for dispute resolution)
+
+Consent checkbox per report generation: "I confirm this draft is AI-assisted and I will verify results before submission."
+
+Admin 2FA and session timeout 30 mins
+
+Payment webhook validation (verify Pesaflux signing)
+
+Rate limiting on generation endpoints to avoid abuse
+
+Role-based access (student/admin).
+
+Logs + monitoring for misuse.
+
+Always validate extracted manual text by user before sending to GPT.
+
+Max retry = 3 per request, then show user-friendly error.
+
+For exports: if render fails, queue retry once, then alert user.
+
+For payments: always confirm webhook success before unlocking export.
+
+For forms: all required fields validated before API call.
+
+
+=============================================================Languages & Frameworks=======================================================================
+
+Frontend:
+- Next.js (React) + Tailwind CSS; PWA enabled for offline draft reading
+
+Backend:
+- Next.js API routes / Node workers and small Express workers for heavy tasks
+- Worker queue: Redis + BullMQ
+
+DB & Storage:
+- Supabase (Postgres) for data; Supabase Storage for files; RLS rules
+
+AI:
+- GPT-4o (production). & Gemini 2.5 Flash (development) Prompt versions in Supabase prompts table. Lower-cost fallback.
+
+Rendering:
+- PDF.js for PDF; docx.js for DOCX exports; Chart.js for charts images
+
+Payments:
+- Pesaflux (M-Pesa STK) integration for KSh payments
+
+Monitoring:
+- Sentry for error tracking; PostHog or Redash for analytics - connected to supabse
+
+DevOps:
+- Vercel for frontend hosting
+
+===============================================================Phase by Phase Building===================================================================
+
+
+Step 1: Supabase Setup (Backend only) - Exactly as in the Full Database plan.
+
+Create all tables (users, units, practicals, reports, etc).
+
+Configure Auth (login/signup).
+
+Set up Storage (manuals, drawings, exports).
+👉 No UI yet. Just the foundation.
+
+
+Step 2: Units & Practicals Structure (UI + DB connection) - Exactly as in the UI/UX, Page by Page Copy Writing Content Plan and Database Plan.
+
+Build the UI pages where students can:
+
+Select Subject (Bio, Chem, Phys).
+
+Select Unit (BIOL 200).
+
+See list of Practicals (Practical 1: Microscopy, etc).
+
+This connects to Supabase → pulls from units and practicals.
+👉 Now pages start to appear.
+
+
+Step 3: Manual Templates (UI + DB connection) - Exactly as in the UI/UX, Page by Page Copy Writing Content Plan and Database Plan.
+
+
+Add a page/section for uploading manual.
+
+Add logic for showing existing manual templates if available.
+
+Save uploads into Supabase (manual_templates + storage).
+👉 This is both feature + UI (students see a form, admins see approval page).
+
+
+Step 4: Reports (UI + Backend) - Exactly as in the UI/UX, Page by Page Copy Writing Content Plan and Database Plan.
+
+Build the New Report Wizard pages:
+
+Results entry form.
+
+AI Draft generation (calls GPT with manual + results).
+
+Save draft into Supabase (reports).
+👉 This is mostly UI pages connected to DB + AI backend.
+
+
+Step 5: Report Drawings (UI + DB) - Exactly as in the UI/UX, Page by Page Copy Writing Content Plan and Database Plan.
+
+Add a file upload field in the “Results” step for sketches/drawings.
+
+Save images into Supabase storage → link them in report_drawings.
+👉 UI feature tied to DB.
+
+
+Step 6: Exports (Backend + UI button) - Exactly as in the UI/UX, Page by Page Copy Writing Content Plan and Database Plan.
+
+Add export buttons (PDF/DOCX).
+
+Build backend function to generate file + save in storage (exports).
+👉 Feature + UI button.
+
+
+Step 7: Payments (Backend + UI flow) - Exactly as in the UI/UX, Page by Page Copy Writing Content Plan and Database Plan.
+
+Add pricing page UI.
+
+Integrate Pesaflux API → update payments table when success.
+👉 Feature + UI page.
+
+
+Step 8: Feedback & Support (UI + DB) - Exactly as in the UI/UX, Page by Page Copy Writing Content Plan and Database Plan.
+
+Add feedback form UI (stars + comment).
+
+Add support requests page UI (students submit issues, admins reply).
+👉 UI pages connected to DB.
+
+
+Step 9: Admin Dashboard (Full UI + DB) - Exactly as in the ADMIN UI/UX, Page by Page Copy Writing Content Plan and Database Plan.
+
+Build a separate UI for admins with pages:
+
+Manual approvals.
+
+User management.
+
+Reports monitoring.
+
+Payments + revenue.
+
+Prompts editor.
+👉 This is pure UI pages + DB queries.
+
+
+Step 10: SEO & Final Touches
+
+Add metadata, sitemaps, caching.
+
+No new UI, just optimization.
+
+
+
+===============================================================Full Database Schema======================================================================
+
+Note: this is a textual schema overview intended for Supabase; types are suggested, adjust during migration.
+
+
+TABLE: users
+
+id UUID PK
+
+email TEXT UNIQUE
+
+name TEXT NULLABLE
+
+role TEXT ENUM ('student','lecturer','admin')
+
+active_plan TEXT ENUM ('free','one_time','pack','semester')
+
+expires_at TIMESTAMP NULLABLE
+
+preferred_mpesa_number TEXT NULLABLE
+
+created_at TIMESTAMP
+
+last_login TIMESTAMP
+
+
+TABLE: units
+
+id UUID PK
+
+code TEXT (e.g., 'BIOL 200')
+
+name TEXT (e.g., 'General Biology II')
+
+subject TEXT ENUM ('Biology','Chemistry','Physics')
+
+created_at TIMESTAMP
+
+
+TABLE: practicals
+
+id UUID PK
+
+unit_id UUID FK → units.id
+
+number INT (Practical number, e.g., 1,2,3)
+
+title TEXT (official practical title, e.g., "Microscopy")
+
+created_at TIMESTAMP
+
+
+TABLE: manual_templates
+
+id UUID PK
+
+practical_id UUID FK → practicals.id
+
+manual_url TEXT (Supabase storage link to file)
+
+manual_hash TEXT (sha256 for deduplication)
+
+parsed_text JSONB (structured: aim, objectives, reagents, procedure)
+
+approved BOOLEAN DEFAULT FALSE
+
+uploaded_by UUID FK → users.id (who uploaded)
+
+approved_by UUID FK → users.id NULLABLE (admin who validated)
+
+created_at TIMESTAMP
+
+updated_at TIMESTAMP
+
+
+TABLE: manual_versions
+
+id UUID PK
+
+manual_template_id UUID FK → manual_templates.id
+
+version INT
+
+manual_url TEXT
+
+parsed_text JSONB
+
+created_by UUID FK → users.id
+
+created_at TIMESTAMP
+
+
+TABLE: reports
+
+id UUID PK
+
+user_id UUID FK → users.id
+
+practical_id UUID FK → practicals.id
+
+manual_id UUID FK → manual_templates.id NULLABLE (template used)
+
+title TEXT (auto-generated or user input)
+
+results_json JSONB (measurements, observations, text entries)
+
+draft_json JSONB (LLM draft structured output)
+
+status TEXT ENUM ('draft_limited','full_report','exported','failed')
+
+created_at TIMESTAMP
+
+updated_at TIMESTAMP
+
+
+TABLE: report_drawings
+
+id UUID PK
+
+report_id UUID FK → reports.id
+
+file_url TEXT (Supabase storage link)
+
+description TEXT NULLABLE (e.g., "Microscope sketch")
+
+created_at TIMESTAMP
+
+
+TABLE: exports
+
+id UUID PK
+
+report_id UUID FK → reports.id
+
+format TEXT ENUM ('pdf','docx')
+
+url TEXT (Supabase storage link)
+
+paid BOOLEAN
+
+created_at TIMESTAMP
+
+
+TABLE: payments
+
+id UUID PK
+
+user_id UUID FK → users.id
+
+amount INT (KES)
+
+method TEXT ENUM ('mpesa','stripe')
+
+status TEXT ENUM ('pending','success','failed')
+
+transaction_id TEXT NULLABLE (Pesaflux reference)
+
+created_at TIMESTAMP
+
+
+TABLE: feedback
+
+id UUID PK
+
+report_id UUID FK → reports.id
+
+user_id UUID FK → users.id
+
+rating INT (1–5)
+
+comment TEXT
+
+created_at TIMESTAMP
+
+
+TABLE: prompts
+
+id UUID PK
+
+name TEXT (e.g., 'chemistry-v1', 'biology-v1')
+
+prompt_text TEXT (system prompt)
+
+version INT
+
+created_by UUID FK → users.id
+
+created_at TIMESTAMP
+
+
+TABLE: admin_logs
+
+id UUID PK
+
+admin_id UUID FK → users.id
+
+action TEXT (e.g., “approved_manual”, “banned_user”, “updated_prompt”)
+
+target_type TEXT (user, report, payment, prompt, manual)
+
+target_id UUID NULLABLE
+
+details JSONB NULLABLE
+
+timestamp TIMESTAMP
+
+
+TABLE: support_requests
+
+id UUID PK
+
+user_id UUID FK → users.id
+
+issue TEXT
+
+status TEXT ENUM ('open','in_progress','closed')
+
+created_at TIMESTAMP
+
+updated_at TIMESTAMP
+
+
+TABLE: notifications (optional, for UX)
+
+id UUID PK
+
+user_id UUID FK → users.id
+
+message TEXT (e.g., “Your manual was approved by admin”)
+
+type TEXT ENUM ('system','payment','manual','reminder')
+
+read BOOLEAN DEFAULT FALSE
+
+created_at TIMESTAMP
+
+
+Key Relationships
+
+users → authors of reports, manuals, feedback, payments, support requests.
+
+units → contain practicals.
+
+practicals → link to manual_templates and reports.
+
+manual_templates → reused by many reports. Deduplicated by manual_hash.
+
+reports → contain student-specific results + drawings.
+
+exports → link to reports, mark paid or free.
+
+payments → link to users, and indirectly to exports.
+
+prompts → used by backend pipeline, editable only by admins.
+
+admin_logs → track admin actions across system.
+
+
+🔹 Supabase Schema Explanation for SciDraft
+
+The schema is built around two flows: Student/User side and Admin side.
+
+
+👩‍🎓 Student Flow
+
+
+User Account
+
+Every student is in the users table.
+
+Their plan (free, one_time, pack, semester) decides what reports they can access.
+
+Choosing Unit & Practical
+
+units = the course (e.g., BIOL 200).
+
+practicals = the experiments inside that course (e.g., Practical 1: Microscopy).
+
+
+Manuals
+
+If a manual_template already exists for that practical → system shows it.
+
+If not, the student uploads → it’s stored in manual_templates (pending admin approval).
+
+manual_hash prevents duplicate uploads of the same manual.
+
+
+Reports
+
+Student creates a report linked to that practical and manual_template.
+
+They enter their results/observations into results_json.
+
+AI generates a draft (draft_json).
+
+Drawings/sketches uploaded separately into report_drawings and linked to the report.
+
+
+Exports
+
+Student requests export as PDF or DOCX.
+
+If paid plan → full report unlocked.
+
+If free → only limited draft shown.
+
+exports logs whether it was paid/free and gives file URL.
+
+
+Payments
+
+When a student pays (via M-Pesa/Pesaflux), entry created in payments.
+
+Optionally, credits/packs tracked in wallet_transactions.
+
+
+Feedback & Support
+
+Student can rate report in feedback.
+
+Can raise issues in support_requests.
+
+Receives updates in notifications.
+
+
+
+🛠️ Admin Flow
+
+
+Manual Management
+
+Admins see new manual uploads in manual_templates.
+
+They review and mark as approved = TRUE.
+
+Versions tracked in manual_versions for history.
+
+
+Prompt Management
+
+Admins update subject-specific prompts in prompts.
+
+Any AI pipeline bug can be patched by changing prompts without new code.
+
+
+Payments & Revenue
+
+All transactions recorded in payments.
+
+Admin dashboard shows breakdown by method (M-Pesa, Stripe).
+
+
+User & Report Oversight
+
+Admins can view/manage users, reports, exports.
+
+Suspicious or problematic uploads flagged via admin_logs.
+
+
+Logs & Security
+
+Every admin action (approving manual, banning user, refunding payment) saved in admin_logs.
+
+Keeps audit trail for accountability.
+
+
+🔗 How Everything Relates
+
+users → create reports, upload manuals, make payments.
+
+units → practicals → manual_templates → reports (hierarchical structure).
+
+reports → contain student input (results, drawings) + AI drafts → can be exported.
+
+exports → depend on reports + payments.
+
+feedback, support_requests, notifications → link back to users and reports for support loop.
+
+admins → oversee all through admin_logs, manual_templates, prompts, payments.
+
+
+🧭 In Short
+
+Student POV: pick unit → pick practical → confirm manual → enter results → AI generates draft → pay/unlock → export.
+
+Admin POV: approve manuals → tweak prompts → monitor users/reports/payments → fix system issues.
+
+
+
+==================================================================Overall Flow=============================================================================
+
+High-Level Flow Example
+
+STUDENT FLOW:
+1. Landing → Start free draft → Login/signup (passwordless)
+2. New Report → Select Subject → Choose Unit → Choose Practical
+   - If template exists: [Use template] → skip upload
+   - If no template: upload manual (enforce UPPERCASE Unit, Practical, Title), admin pending review
+3. Enter Results + upload drawings → Save as draft (status=draft)
+4. Generate Draft Preview (free) → AI runs with the Draft Report Prompt (guided skeleton)- Output shown in editor
+5. Unlock Full Report: pick single/pack/semester → Pesaflux STK push → on success AI runs with the Full Report Prompt (guided skeleton)- Output shown in editor + export
+6. Edit inline for Full report → Export PDF/DOCX → write into lab booklet and submit to lecturer
+7. Leave feedback → optional share to social groups
+
+ADMIN FLOW:
+1. Login → Admin Dashboard
+2. Approve pending manual uploads (view diff) → set approved=true and set canonical manual_id
+3. Monitor payments, failed jobs, queue, and metrics
+4. Edit prompts and run test inputs; version control prompts
+5. Manage user accounts, suspend or issue refunds (super admin only)
+6. View reports and re-trigger exports or troubleshoot
