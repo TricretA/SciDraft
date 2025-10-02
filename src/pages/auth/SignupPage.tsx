@@ -91,19 +91,21 @@ export function SignupPage() {
       if (error) {
         console.log('Signup error received:', error)
         
-        // Handle error as string from AuthContext
-        if (error.includes('already exists') || error.includes('duplicate')) {
-          setError(error)
+        // Handle error object from AuthContext
+        const errorMessage = error.message || error.toString()
+        
+        if (errorMessage.includes('already exists') || errorMessage.includes('duplicate')) {
+          setError(errorMessage)
           // Optionally redirect to login page
           setTimeout(() => {
             navigate('/login')
           }, 3000)
-        } else if (error.includes('validation') || error.includes('invalid')) {
+        } else if (errorMessage.includes('validation') || errorMessage.includes('invalid')) {
           setError('Please check your input and try again.')
-        } else if (error.includes('rate') || error.includes('too many')) {
+        } else if (errorMessage.includes('rate') || errorMessage.includes('too many')) {
           setError('Too many attempts. Please try again later.')
         } else {
-          setError(error || 'An unexpected error occurred. Please try again.')
+          setError(errorMessage || 'An unexpected error occurred. Please try again.')
         }
       } else {
         setSuccess(true)
