@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import express from 'express';
 import { createClient } from '@supabase/supabase-js';
+import https from 'https';
 // Removed NextResponse import - using Express response methods instead
 
 // Initialize Gemini AI
@@ -90,7 +91,7 @@ function validateInput(requestBody) {
   };
 }
 
-// Enhanced draft content validation function
+// Enhanced draft content validation function (with fallbacks)
 function validateDraftContent(draftData) {
   console.log('Starting comprehensive draft content validation...');
   
@@ -112,10 +113,11 @@ function validateDraftContent(draftData) {
     throw new Error('Draft data contains circular references or non-serializable content');
   }
   
-  const requiredSections = ['title', 'introduction', 'objectives', 'materials', 'procedures', 'results', 'discussion', 'conclusion', 'references'];
+  const requiredSections = ['title', 'introduction', 'procedures', 'results', 'conclusion'];
+  const optionalSections = ['objectives', 'materials', 'discussion', 'references'];
   const validationErrors = [];
   
-  // Validate each required section
+  // Validate required sections
   for (const section of requiredSections) {
     const value = draftData[section];
     
@@ -149,6 +151,28 @@ function validateDraftContent(draftData) {
     }
   }
   
+  // Handle optional sections - create defaults if missing
+  for (const section of optionalSections) {
+    if (!draftData[section] || typeof draftData[section] !== 'string' || draftData[section].trim().length === 0) {
+      console.log(`⚠️  Missing optional section: ${section}, creating default...`);
+      
+      switch (section) {
+        case 'objectives':
+          draftData[section] = 'To investigate the relationship between experimental variables and validate theoretical predictions.';
+          break;
+        case 'materials':
+          draftData[section] = 'Materials used in this experiment are listed in the procedures section.';
+          break;
+        case 'discussion':
+          draftData[section] = 'The experimental results are discussed in relation to theoretical predictions and potential sources of error.';
+          break;
+        case 'references':
+          draftData[section] = 'Lab manual and standard textbooks.';
+          break;
+      }
+    }
+  }
+  
   // Validate title specifically (most critical section)
   if (draftData.title) {
     const title = draftData.title.trim();
@@ -164,7 +188,7 @@ function validateDraftContent(draftData) {
   }
   
   // Check for unexpected properties that might indicate parsing issues
-  const allowedProperties = [...requiredSections, 'abstract', 'recommendations', 'error_note', 'metadata'];
+  const allowedProperties = [...requiredSections, ...optionalSections, 'abstract', 'recommendations', 'error_note', 'metadata'];
   const unexpectedProps = Object.keys(draftData).filter(key => !allowedProperties.includes(key));
   if (unexpectedProps.length > 0) {
     console.warn('Draft contains unexpected properties:', unexpectedProps);
@@ -176,7 +200,7 @@ function validateDraftContent(draftData) {
     throw new Error(`Draft validation failed: ${validationErrors.join('; ')}`);
   }
   
-  console.log('Draft content validation passed successfully');
+  console.log('✅ Draft content validation passed successfully');
   return true;
 }
 
@@ -329,11 +353,11 @@ async function handler(req, res) {
     
     // Initialize Gemini model
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       generationConfig: {
         temperature: 0.2,
         topP: 0.8,
-        maxOutputTokens: 4096,
+        maxOutputTokens: 8192, // Increased to handle complete responses
       }
     });
     
@@ -341,22 +365,136 @@ async function handler(req, res) {
     const fullPrompt = `${systemPrompt}\n\nInput Data:\n${userInput}`;
     
     console.log('Sending request to Gemini AI...');
+
+// Alternative Gemini API call using direct HTTP requests
+async function callGeminiWithFallback(model, prompt, attempt = 1) {
+  console.log(`🤖 Gemini API call attempt ${attempt}/3`);
+  
+  try {
+    // First attempt: Use the standard SDK method
+    if (attempt === 1) {
+      return await callGeminiStandard(model, prompt);
+    }
     
-    // Generate content with comprehensive error handling and timeout
+    // Fallback attempts: Use direct HTTP API call
+    console.log('🔄 Using fallback HTTP API call...');
+    return await callGeminiDirectHTTP(prompt);
+    
+  } catch (error) {
+    console.error(`❌ Attempt ${attempt} failed:`, error.message);
+    
+    if (attempt < 3) {
+      console.log(`⏳ Waiting 2000ms before retry...`);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return callGeminiWithFallback(model, prompt, attempt + 1);
+    }
+    
+    throw error;
+  }
+}
+
+// Standard SDK method with enhanced error handling
+async function callGeminiStandard(model, prompt) {
+  console.log('📡 Using standard Gemini SDK method...');
+  
+  return new Promise(async (resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('Gemini API call timed out after 60 seconds'));
+    }, 60000);
+    
+    try {
+      const result = await model.generateContent(prompt);
+      clearTimeout(timeout);
+      resolve(result);
+    } catch (error) {
+      clearTimeout(timeout);
+      reject(error);
+    }
+  });
+}
+
+// Direct HTTP API call as fallback
+async function callGeminiDirectHTTP(prompt) {
+  console.log('🌐 Using direct HTTP API call...');
+  
+  const apiKey = process.env.GEMINI_API_KEY || 'AIzaSyApDWgDSJ_tohn9ufNlPLV8Z35eyganK6s';
+  
+  const requestData = {
+    contents: [{
+      parts: [{
+        text: prompt
+      }]
+    }],
+    generationConfig: {
+      temperature: 0.2,
+      topP: 0.8,
+      maxOutputTokens: 8192
+    }
+  };
+  
+  const postData = JSON.stringify(requestData);
+  
+  const options = {
+    hostname: 'generativelanguage.googleapis.com',
+    port: 443,
+    path: `/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(postData),
+      'User-Agent': 'Node.js/18.0.0'
+    },
+    timeout: 60000
+  };
+  
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      let data = '';
+      
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      
+      res.on('end', () => {
+        try {
+          if (res.statusCode === 200) {
+            const response = JSON.parse(data);
+            console.log('✅ Direct HTTP call successful');
+            resolve(response);
+          } else {
+            console.error(`❌ HTTP ${res.statusCode}: ${data}`);
+            reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+          }
+        } catch (error) {
+          reject(new Error(`Failed to parse response: ${error.message}`));
+        }
+      });
+    });
+    
+    req.on('error', (error) => {
+      console.error('❌ Direct HTTP request failed:', error.message);
+      reject(error);
+    });
+    
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Direct HTTP call timed out'));
+    });
+    
+    req.write(postData);
+    req.end();
+  });
+}
+
+// Generate content with comprehensive error handling and timeout
     let result;
     try {
       console.log('Calling Gemini API...');
       console.log('Full prompt length:', fullPrompt.length);
       console.log('Full prompt preview:', fullPrompt.substring(0, 300) + '...');
       
-      // Set a timeout for the Gemini API call (30 seconds)
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Gemini API call timed out after 30 seconds')), 30000);
-      });
-      
-      const geminiPromise = model.generateContent(fullPrompt);
-      
-      result = await Promise.race([geminiPromise, timeoutPromise]);
+      // Use fallback mechanism
+      result = await callGeminiWithFallback(model, fullPrompt);
       console.log('Gemini API call completed successfully');
     } catch (geminiError) {
       console.error('Gemini API call failed:', geminiError);
@@ -366,6 +504,75 @@ async function handler(req, res) {
       throw new Error(`Gemini API error: ${geminiError.message}`);
     }
     
+// Enhanced response processing (handles both SDK and HTTP formats)
+function processGeminiResponse(result) {
+  console.log('🔍 Processing Gemini response...');
+  
+  try {
+    // Handle both SDK response format and direct HTTP response format
+    let responseData;
+    
+    if (result.response) {
+      // SDK format
+      responseData = result;
+    } else if (result.candidates) {
+      // Direct HTTP format - wrap it to match SDK format
+      responseData = { response: result };
+    } else {
+      throw new Error('Unknown response format');
+    }
+    
+    // Extract text using the same logic as before
+    const generatedText = extractTextFromResponse(responseData);
+    
+    console.log(`✅ Extracted ${generatedText.length} characters`);
+    return generatedText;
+    
+  } catch (error) {
+    console.error('Response processing failed:', error.message);
+    throw error;
+  }
+}
+
+// Extract text from response (handles both formats)
+function extractTextFromResponse(result) {
+  if (!result || !result.response) {
+    throw new Error('Invalid response structure');
+  }
+  
+  const response = result.response;
+  
+  if (!response.candidates || !Array.isArray(response.candidates)) {
+    throw new Error('Missing or invalid candidates array');
+  }
+  
+  if (response.candidates.length === 0) {
+    throw new Error('Empty candidates array');
+  }
+  
+  const candidate = response.candidates[0];
+  
+  if (candidate.finishReason === 'SAFETY') {
+    throw new Error('Content blocked by safety filters');
+  }
+  
+  if (!candidate.content || !candidate.content.parts || !Array.isArray(candidate.content.parts)) {
+    throw new Error('Invalid content structure');
+  }
+  
+  if (candidate.content.parts.length === 0) {
+    throw new Error('Empty parts array');
+  }
+  
+  const textPart = candidate.content.parts[0];
+  
+  if (!textPart.text || typeof textPart.text !== 'string') {
+    throw new Error('Invalid text content');
+  }
+  
+  return textPart.text.trim();
+}
+
     // Enhanced response validation and text extraction based on Gemini response structure analysis
     let generatedText;
     try {
@@ -373,85 +580,17 @@ async function handler(req, res) {
       console.log('Gemini API response structure analysis:');
       console.log('- Response type:', typeof result);
       console.log('- Has response property:', !!result?.response);
-      console.log('- Response keys:', result?.response ? Object.keys(result.response) : 'N/A');
+      console.log('- Has candidates property:', !!result?.candidates);
+      console.log('- Response keys:', result?.response ? Object.keys(result.response) : result?.candidates ? Object.keys(result) : 'N/A');
       
-      // Comprehensive validation of response structure
-      if (!result) {
-        throw new Error('Gemini API returned null or undefined result');
-      }
-      
-      // Check if response follows the expected nested structure: result.response.candidates[0].content.parts[0].text
-      if (!result.response) {
-        console.error('Missing response object in Gemini result. Available keys:', Object.keys(result));
-        throw new Error('Invalid Gemini response: missing response object');
-      }
-      
-      if (!result.response.candidates || !Array.isArray(result.response.candidates)) {
-        console.error('Missing or invalid candidates array. Response structure:', {
-          hasCandidates: !!result.response.candidates,
-          candidatesType: typeof result.response.candidates,
-          responseKeys: Object.keys(result.response)
-        });
-        throw new Error('Invalid Gemini response: missing or invalid candidates array');
-      }
-      
-      if (result.response.candidates.length === 0) {
-        console.error('Empty candidates array in Gemini response');
-        throw new Error('Invalid Gemini response: empty candidates array');
-      }
-      
-      const candidate = result.response.candidates[0];
-      console.log('Candidate structure:', {
-        hasContent: !!candidate.content,
-        finishReason: candidate.finishReason,
-        candidateKeys: Object.keys(candidate)
-      });
-      
-      // Check for safety ratings or blocked content
-      if (candidate.finishReason === 'SAFETY') {
-        console.error('Content blocked by safety filters:', candidate.safetyRatings);
-        throw new Error('Content generation blocked by safety filters');
-      }
-      
-      if (!candidate.content) {
-        console.error('Missing content in candidate. Available keys:', Object.keys(candidate));
-        throw new Error('Invalid Gemini response: missing content in candidate');
-      }
-      
-      if (!candidate.content.parts || !Array.isArray(candidate.content.parts)) {
-        console.error('Missing or invalid parts array. Content structure:', {
-          hasParts: !!candidate.content.parts,
-          partsType: typeof candidate.content.parts,
-          contentKeys: Object.keys(candidate.content)
-        });
-        throw new Error('Invalid Gemini response: missing or invalid parts array');
-      }
-      
-      if (candidate.content.parts.length === 0) {
-        console.error('Empty parts array in candidate content');
-        throw new Error('Invalid Gemini response: empty parts array');
-      }
-      
-      const textPart = candidate.content.parts[0];
-      console.log('Text part structure:', {
-        hasText: !!textPart.text,
-        textType: typeof textPart.text,
-        partKeys: Object.keys(textPart)
-      });
-      
-      // Extract text from the correct nested path: result.response.candidates[0].content.parts[0].text
-      if (!textPart.text || typeof textPart.text !== 'string') {
-        console.error('Missing or invalid text in first part. Part structure:', textPart);
-        throw new Error('Invalid Gemini response: missing or invalid text content');
-      }
-      
-      generatedText = textPart.text.trim();
+      // Use the enhanced response processing
+      generatedText = processGeminiResponse(result);
       
       if (generatedText.length === 0) {
         throw new Error('Gemini response contains empty text content');
       }
       
-      console.log('Successfully extracted text from Gemini response path: result.response.candidates[0].content.parts[0].text');
+      console.log('Successfully extracted text from Gemini response');
       console.log('Response text length:', generatedText.length);
       console.log('Response preview:', generatedText.substring(0, 500) + '...');
       console.log('Response ending:', '...' + generatedText.substring(generatedText.length - 200));

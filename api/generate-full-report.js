@@ -103,7 +103,7 @@ async function handler(req, res) {
     
     // Initialize Gemini model with settings optimized for longer, detailed content
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       generationConfig: {
         temperature: 0.3, // Slightly higher for more creative full report
         topP: 0.9,

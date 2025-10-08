@@ -216,6 +216,7 @@ function FeedbackModal({ isOpen, onClose, sessionId }: FeedbackModalProps) {
 }
 
 export function DraftViewer() {
+  console.log('[DRAFT_VIEWER] Component function called')
   const { user, loading: authLoading } = useAuth()
   const navigate = useNavigate()
   const { sessionId } = useParams<{ sessionId: string }>()
@@ -225,11 +226,15 @@ export function DraftViewer() {
   const [error, setError] = useState('')
   
   // Defensive programming: ensure store methods are available
+  console.log('[DRAFT_VIEWER] Store methods check:', {
+    hasGetReportData: !!getReportData,
+    hasLoadFromSessionStorage: !!loadFromSessionStorage,
+    hasValidateReportData: !!validateReportData
+  })
+  
   if (!getReportData || !loadFromSessionStorage || !validateReportData) {
     console.error('Report store methods not available')
-    setError('System configuration error: Report store not properly initialized')
-    setLoading(false)
-    return
+    // Don't return early - let the component render and show the error state
   }
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [showFeedbackModal, setShowFeedbackModal] = useState(false)
@@ -246,19 +251,49 @@ export function DraftViewer() {
 
   // Load draft data
   useEffect(() => {
+    console.log(`[DRAFT_VIEWER] useEffect triggered with sessionId: ${sessionId}`)
+    console.log(`[DRAFT_VIEWER] Current retry count: ${retryCount}`)
+    console.log(`[DRAFT_VIEWER] Component state - loading: ${loading}, error: ${error}`)
+    
     if (sessionId) {
+      // Validate session ID format - simplified UUID regex
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      if (!uuidRegex.test(sessionId)) {
+        console.error(`[DRAFT_VIEWER] Invalid session ID format: ${sessionId}`)
+        setError('Invalid session ID format')
+        setLoading(false)
+        return
+      }
+      
+      console.log(`[DRAFT_VIEWER] Valid session ID detected: ${sessionId}, loading draft...`)
       loadDraftData()
+    } else {
+      console.error(`[DRAFT_VIEWER] No session ID provided`)
+      setError('No session ID provided')
+      setLoading(false)
     }
   }, [sessionId])
 
-  // Exponential backoff utility
+  // Exponential backoff utility with better error handling
   const exponentialBackoff = async (fn: () => Promise<any>, maxRetries: number = 5): Promise<any> => {
     for (let i = 0; i < maxRetries; i++) {
       try {
         return await fn()
-      } catch (error) {
+      } catch (error: any) {
+        console.error(`Attempt ${i + 1} failed:`, error.message)
+        
+        // Don't retry on certain types of errors
+        if (error.code === 'PGRST301' || // RLS policy violation
+            error.code === 'PGRST302' || // Invalid JWT
+            error.code === 'PGRST303' || // Insufficient privileges
+            error.message?.includes('Invalid session ID format')) {
+          throw error // Don't retry these errors
+        }
+        
         if (i === maxRetries - 1) throw error
-        const delay = Math.pow(2, i) * 1000 // 1s, 2s, 4s, 8s, 16s
+        
+        const delay = Math.min(Math.pow(2, i) * 1000, 30000) // 1s, 2s, 4s, 8s, 16s, max 30s
+        console.log(`Waiting ${delay}ms before retry...`)
         await new Promise(resolve => setTimeout(resolve, delay))
       }
     }
@@ -269,19 +304,30 @@ export function DraftViewer() {
       setLoading(true)
       setError('')
       
+      console.log(`[DRAFT_VIEWER] Loading draft for session: ${sessionId}, retry: ${retryCount}`)
+      
       const result = await exponentialBackoff(async () => {
+        // Use maybeSingle() directly to handle cases where no rows or multiple rows might exist
+        // This prevents PGRST116 errors from occurring in the first place
         const { data, error } = await supabase
           .from('drafts')
           .select('id, session_id, user_id, draft, status, created_at, updated_at')
           .eq('session_id', sessionId)
-          .single()
+          .maybeSingle()
 
         if (error) {
-          if (error.code === 'PGRST116') {
-            // No rows returned - draft might still be processing
-            throw new Error('Draft not found or still processing')
+          console.error(`[DRAFT_VIEWER] Query error: ${error.code} - ${error.message}`)
+          
+          if (error.code === 'PGRST301') {
+            throw new Error('Access denied to draft. Please ensure you have proper permissions.')
           }
+          
           throw error
+        }
+        
+        if (!data) {
+          console.log('[DRAFT_VIEWER] No draft found')
+          throw new Error('Draft not found')
         }
         
         return data
@@ -291,27 +337,35 @@ export function DraftViewer() {
         throw new Error('Draft not found')
       }
 
+      console.log('[DRAFT_VIEWER] Draft loaded successfully:', result.status)
+      console.log('[DRAFT_VIEWER] Draft data structure:', {
+        hasDraft: !!result.draft,
+        draftType: typeof result.draft,
+        draftLength: result.draft?.length,
+        draftPreview: result.draft?.substring(0, 200),
+        status: result.status,
+        createdAt: result.created_at
+      })
       setDraftData(result)
       
-      // Check if a full report already exists for this session
+      // Check for existing report
       try {
-        const { data: reportData, error: reportError } = await supabase
+        const { data: reportData } = await supabase
           .from('reports')
           .select('id')
           .eq('session_id', sessionId)
           .single()
         
-        if (reportData && !reportError) {
+        if (reportData) {
           setFullReportGenerated(true)
-          console.log('Full report already exists for this session')
         }
       } catch (reportCheckError) {
-        // No report exists yet, which is fine
-        console.log('No full report exists yet for this session')
+        // No report exists yet
       }
       
-      // If draft is still pending, set up polling
+      // Poll if pending
       if (result.status === 'pending') {
+        console.log('[DRAFT_VIEWER] Draft pending, polling...')
         setTimeout(() => {
           if (retryCount < maxRetries) {
             setRetryCount(prev => prev + 1)
@@ -319,18 +373,19 @@ export function DraftViewer() {
           } else {
             setError('Draft generation is taking longer than expected. Please try refreshing the page.')
           }
-        }, 3000) // Poll every 3 seconds
+        }, 3000)
       }
       
     } catch (err: any) {
-      console.error('Error loading draft:', err)
-      if (retryCount < maxRetries && err.message.includes('still processing')) {
-        // If it's still processing, show a different message and retry
+      console.error('[DRAFT_VIEWER] Error:', err.message)
+      
+      if (retryCount < maxRetries && (err.message.includes('still processing') || err.message.includes('not found'))) {
+        const waitTime = Math.min(5000 * (retryCount + 1), 30000)
         setError('Draft is being generated, please wait...')
         setTimeout(() => {
           setRetryCount(prev => prev + 1)
           loadDraftData()
-        }, 5000)
+        }, waitTime)
       } else {
         setError(err.message || 'Failed to load draft')
       }
@@ -647,27 +702,70 @@ export function DraftViewer() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-cyan-400 mx-auto mb-4" />
-          <p className="text-white/70">Loading draft...</p>
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="relative w-16 h-16 mx-auto mb-6">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white"></div>
+            <div className="absolute inset-0 rounded-full border-t-2 border-purple-400 animate-spin" style={{animationDelay: '-0.5s'}}></div>
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-3">Loading Draft</h2>
+          <p className="text-white/70 mb-4">Please wait while we fetch your draft...</p>
+          
+          <p className="text-white/50 text-xs">
+            Session ID: {sessionId?.substring(0, 8)}...
+          </p>
         </div>
       </div>
     )
   }
 
   if (error) {
+    const isNotFound = error.includes('not found') || error.includes('not found or still processing')
+    const isAccessDenied = error.includes('Access denied') || error.includes('permission')
+    
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-white mb-2">Error Loading Draft</h2>
-          <p className="text-white/70 mb-4">{error}</p>
-          <button
-            onClick={() => navigate('/my-reports')}
-            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-lg text-white font-medium transition-all duration-200"
-          >
-            Back to My Reports
-          </button>
+        <div className="text-center max-w-md mx-auto px-4">
+          <AlertCircle className="h-16 w-16 text-red-400 mx-auto mb-6" />
+          <h2 className="text-2xl font-bold text-white mb-4">
+            {isNotFound ? 'Draft Not Found' : 'Error Loading Draft'}
+          </h2>
+          <p className="text-white/70 mb-6">{error}</p>
+          
+          {isNotFound && (
+            <div className="bg-white/10 border border-white/20 rounded-lg p-4 mb-6">
+              <p className="text-white/80 text-sm mb-2">Possible solutions:</p>
+              <ul className="text-white/70 text-sm space-y-1 text-left">
+                <li>• Check if the draft URL is correct</li>
+                <li>• Wait a few moments and refresh the page</li>
+                <li>• Ensure you're logged in if the draft requires authentication</li>
+                <li>• Try generating a new draft from your reports page</li>
+              </ul>
+            </div>
+          )}
+          
+          {isAccessDenied && (
+            <div className="bg-yellow-500/10 border border-yellow-400/20 rounded-lg p-4 mb-6">
+              <p className="text-yellow-300 text-sm mb-2">Access Issue:</p>
+              <p className="text-white/70 text-sm">
+                This draft may require authentication. Try logging in or ensure you have the correct permissions.
+              </p>
+            </div>
+          )}
+          
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-6 py-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white font-medium transition-all duration-200"
+            >
+              Refresh Page
+            </button>
+            <button
+              onClick={() => navigate('/my-reports')}
+              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-lg text-white font-medium transition-all duration-200"
+            >
+              Back to My Reports
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -750,6 +848,12 @@ export function DraftViewer() {
           {/* Draft Content Display */}
           <div id="draft-content" className="p-4 bg-white">
             <div className="prose max-w-none text-gray-900">
+              {console.log('[DRAFT_VIEWER] Rendering draft content:', {
+                hasDraft: !!draftData.draft,
+                draftType: typeof draftData.draft,
+                draftLength: draftData.draft?.length,
+                status: draftData.status
+              })}
               {draftData.draft ? (
                 <div className="space-y-6">
                   <div className="text-center mb-6">

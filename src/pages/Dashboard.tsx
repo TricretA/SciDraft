@@ -11,7 +11,6 @@ import {
   AlertCircle,
   User,
   Settings,
-  CreditCard,
   HelpCircle,
   LogOut,
   BookOpen,
@@ -444,7 +443,7 @@ export function Dashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"
+          className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8"
         >
           <Link
             to="/new-report"
@@ -471,20 +470,6 @@ export function Dashboard() {
               </div>
               <h3 className="text-xl font-bold mb-2">Reports</h3>
               <p className="text-emerald-100 text-sm opacity-90">Access your research library</p>
-            </div>
-          </Link>
-
-          <Link
-            to="/payments"
-            className="group relative overflow-hidden bg-gradient-to-br from-violet-500 via-purple-600 to-indigo-700 rounded-2xl p-8 text-white hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-2"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-            <div className="relative z-10 flex flex-col items-center text-center">
-              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                <CreditCard className="h-8 w-8" />
-              </div>
-              <h3 className="text-xl font-bold mb-2">Payment & Plans</h3>
-              <p className="text-violet-100 text-sm opacity-90">Manage your subscription</p>
             </div>
           </Link>
         </motion.div>
