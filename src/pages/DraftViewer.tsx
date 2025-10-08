@@ -807,6 +807,14 @@ export function DraftViewer() {
     )
   }
 
+  // Log draft content for debugging (outside of JSX)
+  console.log('[DRAFT_VIEWER] Rendering draft content:', {
+    hasDraft: !!draftData.draft,
+    draftType: typeof draftData.draft,
+    draftLength: draftData.draft?.length,
+    status: draftData.status
+  })
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       {/* Header */}
@@ -848,12 +856,6 @@ export function DraftViewer() {
           {/* Draft Content Display */}
           <div id="draft-content" className="p-4 bg-white">
             <div className="prose max-w-none text-gray-900">
-              {console.log('[DRAFT_VIEWER] Rendering draft content:', {
-                hasDraft: !!draftData.draft,
-                draftType: typeof draftData.draft,
-                draftLength: draftData.draft?.length,
-                status: draftData.status
-              })}
               {draftData.draft ? (
                 <div className="space-y-6">
                   <div className="text-center mb-6">
