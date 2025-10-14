@@ -11,6 +11,7 @@ import authRouter from './routes/auth.js';
 import adminAuthRouter from './routes/adminAuth.js';
 import generateDraftRouter from './generate-draft.js';
 import generateFullReportRouter from './generate-full-report.js';
+import testEnvRouter from './test-env.js';
 
 // for esm mode
 const __filename = fileURLToPath(import.meta.url);
@@ -33,6 +34,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/admin/auth', adminAuthRouter);
 app.use('/api/generate-draft', generateDraftRouter);
 app.use('/api/generate-full-report', generateFullReportRouter);
+app.use('/api/test-env', testEnvRouter);
 
 /**
  * health
