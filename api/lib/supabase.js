@@ -1,8 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
-
-// Load environment variables
-dotenv.config();
+const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config();
 
 // Backend Supabase client using service role key for admin operations
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -12,9 +9,11 @@ if (!supabaseUrl || !supabaseServiceKey) {
   throw new Error('Missing Supabase environment variables for backend');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false
   }
 });
+
+module.exports = { supabase };

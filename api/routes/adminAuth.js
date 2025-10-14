@@ -1,29 +1,14 @@
-import express, { Request, Response } from 'express';
-import { supabase } from '../lib/supabase.js';
-import { isValidAdminEmail, sanitizeEmail } from '../../src/utils/adminSecurity.js';
-import bcrypt from 'bcryptjs';
+const express = require('express');
+const { supabase } = require('../lib/supabase.js');
+const { isValidAdminEmail, sanitizeEmail } = require('../utils/adminSecurity.js');
+const bcrypt = require('bcryptjs');
 
 const router = express.Router();
 
-interface AdminLoginRequest {
-  email: string;
-  password: string;
-}
 
-interface AdminLoginResponse {
-  success: boolean;
-  admin?: {
-    id: string;
-    email: string;
-    role: string;
-    fullName: string;
-    loginTime: string;
-  };
-  error?: string;
-}
 
 // Admin authentication endpoint
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -94,7 +79,7 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // Check admins endpoint for debugging
-router.get('/check-admins', async (req: Request, res: Response) => {
+router.get('/check-admins', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('admins')
@@ -117,4 +102,4 @@ router.get('/check-admins', async (req: Request, res: Response) => {
   }
 });
 
-export default router;
+module.exports = router;

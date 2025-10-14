@@ -1,9 +1,9 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import fs from 'fs';
-import path from 'path';
-import express from 'express';
-import { createClient } from '@supabase/supabase-js';
-import https from 'https';
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const fs = require('fs');
+const path = require('path');
+const express = require('express');
+const { createClient } = require('@supabase/supabase-js');
+const https = require('https');
 // Removed NextResponse import - using Express response methods instead
 
 // Initialize Gemini AI
@@ -1155,7 +1155,4 @@ function extractTextFromResponse(result) {
 router.post('/', handler);
 
 // Export the router as default
-export default router;
-
-// Export for testing 
-export { loadSystemPrompt, validateInput, formatImagesForAI };
+module.exports = router;

@@ -2,8 +2,7 @@
  * This is a user authentication API route demo.
  * Handle user registration, login, token management, etc.
  */
-import { Router, type Request, type Response } from 'express';
-
+const { Router } = require('express');
 
 const router = Router();
 
@@ -11,14 +10,14 @@ const router = Router();
  * User Registration
  * POST /api/auth/register
  */
-router.post('/register', async (req: Request, res: Response): Promise<void> => {
+router.post('/register', async (req, res) => {
   try {
     // TODO: Implement register logic
     res.status(501).json({
       success: false,
       error: 'Registration endpoint not yet implemented'
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in register endpoint:', error);
     res.status(500).json({
       success: false,
@@ -31,14 +30,14 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
  * User Login
  * POST /api/auth/login
  */
-router.post('/login', async (req: Request, res: Response): Promise<void> => {
+router.post('/login', async (req, res) => {
   try {
     // TODO: Implement login logic
     res.status(501).json({
       success: false,
       error: 'Login endpoint not yet implemented'
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in login endpoint:', error);
     res.status(500).json({
       success: false,
@@ -51,14 +50,14 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
  * User Logout
  * POST /api/auth/logout
  */
-router.post('/logout', async (req: Request, res: Response): Promise<void> => {
+router.post('/logout', async (req, res) => {
   try {
     // TODO: Implement logout logic
     res.status(501).json({
       success: false,
       error: 'Logout endpoint not yet implemented'
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in logout endpoint:', error);
     res.status(500).json({
       success: false,
@@ -67,4 +66,4 @@ router.post('/logout', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-export default router;
+module.exports = router;

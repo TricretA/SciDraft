@@ -1,6 +1,6 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import express from 'express';
-import { createClient } from '@supabase/supabase-js';
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const express = require('express');
+const { createClient } = require('@supabase/supabase-js');
 
 // Initialize Gemini AI with fallback handling
 let genAI;
@@ -316,4 +316,4 @@ async function handler(req, res) {
 router.post('/', handler);
 
 // Export the router as default
-export default router;
+module.exports = router;

@@ -1,7 +1,7 @@
 /**
  * local server entry file, for local development
  */
-import app from './app.js';
+const app = require('./app.js');
 
 /**
  * start server with port
@@ -31,7 +31,7 @@ process.on('SIGINT', () => {
   });
 });
 
-export default app;
+module.exports = app;
 
 
 // Trigger restart - updated
