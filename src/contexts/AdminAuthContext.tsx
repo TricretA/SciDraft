@@ -71,6 +71,8 @@ export const AdminAuthProvider: React.FC<AdminAuthProviderProps> = ({ children }
   const activityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const SESSION_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
+  
+  console.log('AdminAuthProvider initializing...')
 
   // Logout function - memoized with no state dependencies
   const logout = useCallback(() => {

@@ -20,6 +20,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    console.log('AuthProvider initializing...')
+    
     // DISABLE AUTOMATIC LOGIN - Clear any existing session on app start
     const clearSessionAndInitialize = async () => {
       try {
@@ -32,12 +34,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null)
       } catch (error) {
         console.error('Error clearing session:', error)
+        // Don't let auth errors crash the app
+        setSupabaseUser(null)
+        setUser(null)
       } finally {
         setLoading(false)
       }
     }
 
-    clearSessionAndInitialize()
+    clearSessionAndInitialize().catch(error => {
+      console.error('Critical error in AuthProvider initialization:', error)
+      setLoading(false)
+      setSupabaseUser(null)
+      setUser(null)
+    })
 
     // Listen for auth changes with email confirmation enforcement
     const {

@@ -36,6 +36,7 @@ import { AdminNotifications } from './pages/admin/AdminNotifications'
 import { AdminSystemSettings } from './pages/admin/AdminSystemSettings'
 import AdminReportDetails from './pages/admin/AdminReportDetails'
 import ReportRendererTest from './test/ReportRendererTest'
+import ErrorBoundary from './components/ErrorBoundary'
 import './App.css'
 
 function ProtectedRoute({ children, requireAuth = true }: { children: React.ReactNode; requireAuth?: boolean }) {
@@ -174,14 +175,21 @@ function AppRoutes() {
 }
 
 function App() {
+  // Add debugging for production
+  console.log('App component rendering...')
+  console.log('Environment:', process.env.NODE_ENV)
+  console.log('Supabase URL configured:', !!import.meta.env.VITE_SUPABASE_URL)
+  
   return (
     <AuthProvider>
       <AdminAuthProvider>
-        <Router>
-          <div className="min-h-screen bg-gray-50">
-            <AppRoutes />
-          </div>
-        </Router>
+        <ErrorBoundary>
+          <Router>
+            <div className="min-h-screen bg-gray-50">
+              <AppRoutes />
+            </div>
+          </Router>
+        </ErrorBoundary>
       </AdminAuthProvider>
     </AuthProvider>
   )
