@@ -1,6 +1,5 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import express from 'express';
-import { createClient } from '@supabase/supabase-js';
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { createClient } = require('@supabase/supabase-js');
 
 // Initialize Gemini AI with fallback handling
 let genAI;
@@ -160,8 +159,6 @@ Additional supporting materials, detailed calculations, and supplementary data s
   return fallbackReport;
 }
 
-const router = express.Router();
-
 // Main full report generation function
 async function handler(req, res) {
   // Set response headers to ensure proper JSON content type
@@ -312,7 +309,5 @@ async function handler(req, res) {
   }
 }
 
-// Set up the router
-router.post('/', handler);
-
-export default router;
+// Export the handler function for Vercel serverless functions
+module.exports = handler;
