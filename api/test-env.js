@@ -4,7 +4,7 @@ console.log('GEMINI_API_KEY exists:', !!process.env.GEMINI_API_KEY);
 console.log('SUPABASE_URL exists:', !!process.env.SUPABASE_URL);
 console.log('SUPABASE_SERVICE_ROLE_KEY exists:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-import express from 'express';
+const express = require('express');
 
 const router = express.Router();
 
@@ -19,4 +19,4 @@ router.get('/', (req, res) => {
   });
 });
 
-export default router;
+module.exports = router;
