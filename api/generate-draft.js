@@ -7,12 +7,18 @@ import https from 'https';
 // Removed NextResponse import - using Express response methods instead
 
 // Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'AIzaSyApDWgDSJ_tohn9ufNlPLV8Z35eyganK6s');
+if (!process.env.GEMINI_API_KEY) {
+  throw new Error('GEMINI_API_KEY environment variable is required');
+}
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Initialize Supabase client
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables are required');
+}
 const supabase = createClient(
-  process.env.SUPABASE_URL || 'https://jjgynhecxcnpizwdzsdi.supabase.co',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqZ3luaGVjeGNucGl6d2R6c2RpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzQ0NDU5NiwiZXhwIjoyMDczMDIwNTk2fQ.2NTxVijBWrrHiQAZkq5j9yh8MofTbJ070RlzDDFWRic'
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 // Load system prompt from file
@@ -237,6 +243,16 @@ async function handler(req, res) {
   
   // Comprehensive try-catch wrapper to ensure ALL errors return valid JSON
   try {
+    // Validate Gemini API key is available
+    if (!process.env.GEMINI_API_KEY) {
+      console.error('GEMINI_API_KEY environment variable is missing');
+      const errorResponse = JSON.stringify({
+        success: false,
+        error: 'AI service configuration error. Please contact support.'
+      });
+      return res.status(500).end(errorResponse);
+    }
+    
     // Only allow POST requests
     if (req.method !== 'POST') {
       const errorResponse = JSON.stringify({
@@ -417,7 +433,11 @@ async function callGeminiStandard(model, prompt) {
 async function callGeminiDirectHTTP(prompt) {
   console.log('🌐 Using direct HTTP API call...');
   
-  const apiKey = process.env.GEMINI_API_KEY || 'AIzaSyApDWgDSJ_tohn9ufNlPLV8Z35eyganK6s';
+  const apiKey = process.env.GEMINI_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error('Gemini API key is not configured');
+  }
   
   const requestData = {
     contents: [{
