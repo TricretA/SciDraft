@@ -2,26 +2,19 @@
  * This is a API server
  */
 
-import express, { type Request, type Response, type NextFunction }  from 'express';
-import cors from 'cors';
-import path from 'path';
-import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
-import authRouter from './routes/auth.js';
-import adminAuthRouter from './routes/adminAuth.js';
-import generateDraftRouter from './generate-draft.js';
-import generateFullReportRouter from './generate-full-report.js';
-import testEnvRouter from './test-env.js';
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+require('dotenv').config();
 
-// for esm mode
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// load env
-dotenv.config();
+const authRouter = require('./routes/auth.js');
+const adminAuthRouter = require('./routes/adminAuth.js');
+const generateDraftRouter = require('./generate-draft.js');
+const generateFullReportRouter = require('./generate-full-report.js');
+const testEnvRouter = require('./test-env.js');
 
 
-const app: express.Application = express();
+const app = express();
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -39,7 +32,7 @@ app.use('/api/test-env', testEnvRouter);
 /**
  * health
  */
-app.use('/api/health', (req: Request, res: Response, next: NextFunction): void => {
+app.use('/api/health', (req, res, next) => {
   res.status(200).json({
     success: true,
     message: 'ok'
@@ -49,7 +42,7 @@ app.use('/api/health', (req: Request, res: Response, next: NextFunction): void =
 /**
  * error handler middleware
  */
-app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
+app.use((error, req, res, next) => {
   res.status(500).json({
     success: false,
     error: 'Server internal error'
@@ -59,11 +52,11 @@ app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
 /**
  * 404 handler
  */
-app.use((req: Request, res: Response) => {
+app.use((req, res) => {
   res.status(404).json({
     success: false,
     error: 'API not found'
   });
 });
 
-export default app;
+module.exports = app;
