@@ -7,7 +7,10 @@ import https from 'https';
 import http from 'http';
 
 // Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'AIzaSyApDWgDSJ_tohn9ufNlPLV8Z35eyganK6s');
+if (!process.env.GEMINI_API_KEY) {
+  throw new Error('GEMINI_API_KEY environment variable is required');
+}
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -104,7 +107,11 @@ async function callGeminiStandard(model, prompt) {
 async function callGeminiDirectHTTP(prompt) {
   console.log('🌐 Using direct HTTP API call...');
   
-  const apiKey = process.env.GEMINI_API_KEY || 'AIzaSyApDWgDSJ_tohn9ufNlPLV8Z35eyganK6s';
+  const apiKey = process.env.GEMINI_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error('Gemini API key is not configured');
+  }
   
   const requestData = {
     contents: [{
