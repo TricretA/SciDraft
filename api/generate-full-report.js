@@ -347,12 +347,15 @@ async function handler(req, res) {
     
     // Parse AI response into JSON format for ReportRenderer
     let reportData;
-    if (typeof generatedText === 'string' && !geminiAvailable) {
-      // If we used fallback, it's already JSON
+    if (typeof generatedText === 'object' && !geminiAvailable) {
+      // If we used fallback, it's already a JSON object
       reportData = generatedText;
-    } else {
+    } else if (typeof generatedText === 'string') {
       // Parse AI text response into structured JSON
       reportData = parseAITextToJSON(generatedText, subject, validatedData);
+    } else {
+      // Handle unexpected format
+      throw new Error('Generated content has unexpected format');
     }
     
     // Return the generated full report as JSON
