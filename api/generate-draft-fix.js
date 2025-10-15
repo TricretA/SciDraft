@@ -31,28 +31,89 @@ const GEMINI_CONFIG = {
   }
 };
 
-// Load system prompt from file
+// Load system prompt from file with multiple fallback strategies
 function loadSystemPrompt() {
+  const fallbackPrompt = `You are an academic assistant helping a student draft a lab report.  
+Your task is to generate a structured report with all 10 required sections.  
+
+Rules:
+1. Sections Title, Introduction, Objectives/Aims, Materials & Reagents, Procedures, and Results:  
+   - Title - Be descriptive, concise, and specific. Use the one provided on the manual.
+   - Introduction - Provide background theory. State the problem and purpose. Structure from general to specific. Make it at least 6 sentences.
+   - Objectives/Aims - Use a bulleted or numbered list. Start each point with a clear action verb. Ensure goals are specific and measurable. Give at least 6 sentences.
+   - Materials - List all equipment and reagents as in the manual. Do not describe the use of the materials.
+   - Procedure - Write in paragraph form, not a list. Use the past tense and passive voice. Be detailed enough for replication. Do copy the lab manual procedures - enhance them if they are not clear.
+   - Results - Present raw and processed data objectively. Use clearly labeled tables and figures. Show sample calculations(if available). Include qualitative observations. Do not interpret the data.
+   - Never invent results; use exactly what was provided.  
+   - If no results are provided, write "[STUDENT INPUT REQUIRED - Please add your experimental results and observations here]" in the Results section.  
+
+2. Sections Discussion, Recommendations, and Conclusion:  
+   - Do NOT write the full text.  
+   - Instead, provide **guidance** on how the student should write.  
+   - Guidance must be specific to the experiment (e.g., "In your Discussion, reflect on why the observed color change occurred and compare with the expected reaction mechanism").  
+   - Recommendations - Guide on Suggestion specific, practical improvements to the experimental design. Guide them how to Justify how these changes would yield better results.
+   - Conclusion must state whether the objectives were met. Do not introduce new information. You confirm the objectives and guide them what to write.
+   - Never give a completed essay here.  
+   - Each section must be at least six long sentences.
+
+3. References:  
+   - Provide exactly **3 references only**:  
+     - Three standard textbooks (formatted properly in APA format).  
+   - References must be exactly relevant to the report.  
+
+4. Formatting:  
+   - Output must strictly follow this structure:  
+     1. Title  
+     2. Introduction (at least 6 sentences)
+     3. Objectives/Aims (at least 6 sentences) 
+     4. Materials & Reagents  
+     5. Procedures  
+     6. Results  
+     7. Discussion (Guidance only at least 6 sentences)  
+     8. Recommendations (Guidance only at least 6 sentences)  
+     9. Conclusion (Guidance only at least 6 sentences)  
+     10. References (only 3 sources)  
+- Vary sentence structures, use synonyms, and insert slight differences in tone while preserving accuracy.
+- Avoid repetitive phrasing. Write with moderate complexity, include natural human hesitations (e.g., likely due to), and avoid generic AI filler sentences.
+- Vary sentence length, Add transition phrases ("however," "in practice," "as observed"), Reduce overly formal AI rhythm. Make it sound its written by a student not AI.
+5. Output format:  
+   - Return ONLY valid JSON with 10 keys corresponding to the sections, no comments, no markdown, no text outside JSON.  
+   - If info is missing, write "[STUDENT INPUT REQUIRED]".`;
+
   try {
-    const promptPath = path.join(process.cwd(), 'Gemini_prompt.txt');
-    return fs.readFileSync(promptPath, 'utf8');
+    // Strategy 1: Try to load from current working directory (production)
+    const promptPath = path.join(process.cwd(), 'gemini_prompt.txt');
+    if (fs.existsSync(promptPath)) {
+      const content = fs.readFileSync(promptPath, 'utf8');
+      console.log('✅ System prompt loaded from:', promptPath);
+      return content;
+    }
+    
+    // Strategy 2: Try to load from project root (development)
+    const rootPath = path.join(__dirname, '..', 'gemini_prompt.txt');
+    if (fs.existsSync(rootPath)) {
+      const content = fs.readFileSync(rootPath, 'utf8');
+      console.log('✅ System prompt loaded from:', rootPath);
+      return content;
+    }
+    
+    // Strategy 3: Try to load from API directory (alternative deployment)
+    const apiPath = path.join(__dirname, 'gemini_prompt.txt');
+    if (fs.existsSync(apiPath)) {
+      const content = fs.readFileSync(apiPath, 'utf8');
+      console.log('✅ System prompt loaded from:', apiPath);
+      return content;
+    }
+    
+    // Strategy 4: Use fallback prompt
+    console.warn('⚠️  Could not find gemini_prompt.txt file, using fallback prompt');
+    console.warn('Searched paths:', [promptPath, rootPath, apiPath]);
+    return fallbackPrompt;
+    
   } catch (error) {
-    console.error('Error loading system prompt:', error);
-    // Fallback system prompt
-    return `You are a scientific report assistant. Generate a structured lab report draft based on the provided manual excerpt and student results. 
-
-The response must be valid JSON with these sections:
-- title: A concise, descriptive title
-- introduction: Background and context
-- objectives: Clear learning objectives  
-- materials: Equipment and materials used
-- procedures: Step-by-step methodology
-- results: Findings and observations
-- discussion: Analysis and interpretation
-- conclusion: Key findings summary
-- references: Citations and sources
-
-Keep content concise, scientific, and appropriate for academic level.`;
+    console.error('❌ Error loading system prompt:', error.message);
+    console.error('Using fallback prompt instead');
+    return fallbackPrompt;
   }
 }
 
