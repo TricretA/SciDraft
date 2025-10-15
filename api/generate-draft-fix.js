@@ -171,7 +171,7 @@ async function callGeminiDirectHTTP(prompt) {
   const apiKey = process.env.GEMINI_API_KEY;
   
   if (!apiKey) {
-    throw new Error('Gemini API key is not configured');
+    throw new Error('Gemini API key is not configured in environment variables.');
   }
   
   const requestData = {
