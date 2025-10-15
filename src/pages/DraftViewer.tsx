@@ -664,17 +664,21 @@ export function DraftViewer() {
 
       // Save the full report to the reports table
       try {
+        // Store the JSON content directly (it's already parsed)
+        const reportContent = typeof result.content === 'string' ? JSON.parse(result.content) : result.content;
+        
         const { error: insertError } = await supabase
           .from('reports')
           .insert({
             user_id: draftData.user_id,
             session_id: draftData.session_id,
-            content: result.content, // Store directly as string, no JSON.stringify needed
+            content: reportContent, // Store as JSON object, not string
             subject: originalData.subject,
             metadata: {
               generated_from_draft_id: draftData.id,
               original_data_source: dataSource,
-              generation_timestamp: new Date().toISOString()
+              generation_timestamp: new Date().toISOString(),
+              content_type: 'json_structured'
             }
           })
 

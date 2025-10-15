@@ -37,10 +37,11 @@ Rules:
      7. Discussion (Guidance only at least 6 sentences)  
      8. Recommendations (Guidance only at least 6 sentences)  
      9. Conclusion (Guidance only at least 6 sentences)  
-     10. References (only 3 sources)  
+     10. References (give only 3 sources in APA format)  - you must give.
 - Vary sentence structures, use synonyms, and insert slight differences in tone while preserving accuracy.
 - Avoid repetitive phrasing. Write with moderate complexity, include natural human hesitations (e.g., likely due to), and avoid generic AI filler sentences.
 - Vary sentence length, Add transition phrases (“however,” “in practice,” “as observed”), Reduce overly formal AI rhythm. Make it sound its written by a student not AI.
+- No abstract section to be added.
 5. Output format:  
    - Return ONLY valid JSON with 10 keys corresponding to the sections, no comments, no markdown, no text outside JSON.  
    - If info is missing, write “[STUDENT INPUT REQUIRED]”.

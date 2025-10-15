@@ -79,6 +79,135 @@ async function exponentialBackoff(fn, maxRetries = 3) {
   }
 }
 
+// Parse AI text response into structured JSON format
+function parseAITextToJSON(aiText, subject, data) {
+  console.log('Parsing AI text response to JSON format...');
+  
+  try {
+    // Try to extract JSON if AI returned JSON
+    if (aiText.trim().startsWith('{') && aiText.trim().endsWith('}')) {
+      return JSON.parse(aiText);
+    }
+    
+    // Parse markdown-style text into structured JSON
+    const lines = aiText.split('\n').filter(line => line.trim());
+    const sections = {
+      title: subject ? `${subject} Lab Report` : 'Lab Report',
+      introduction: '',
+      objectives: [],
+      materials: [],
+      procedures: '',
+      results: '',
+      discussion: '',
+      conclusion: '',
+      recommendations: [],
+      references: [],
+      pages: ''
+    };
+    
+    let currentSection = 'introduction';
+    let currentContent = [];
+    
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      
+      // Skip empty lines and horizontal rules
+      if (!trimmedLine || trimmedLine.match(/^---+$/)) continue;
+      
+      // Detect section headers
+      if (trimmedLine.match(/^#\s+(.+)$/)) {
+        // Save previous section
+        if (currentContent.length > 0) {
+          const content = currentContent.join(' ').trim();
+          if (currentSection === 'objectives' || currentSection === 'recommendations') {
+            sections[currentSection] = content.split(/\d+\.|\*|-/).map(item => item.trim()).filter(item => item.length > 0);
+          } else if (currentSection === 'materials') {
+            sections[currentSection] = content.split(/[;,]/).map(item => item.trim()).filter(item => item.length > 0);
+          } else {
+            sections[currentSection] = content;
+          }
+        }
+        
+        // Start new section
+        const title = trimmedLine.replace(/^#\s+/, '');
+        if (title.toLowerCase().includes('abstract')) {
+          currentSection = 'pages';
+        } else if (title.toLowerCase().includes('introduction')) {
+          currentSection = 'introduction';
+        } else if (title.toLowerCase().includes('material')) {
+          currentSection = 'materials';
+        } else if (title.toLowerCase().includes('method') || title.toLowerCase().includes('procedure')) {
+          currentSection = 'procedures';
+        } else if (title.toLowerCase().includes('result')) {
+          currentSection = 'results';
+        } else if (title.toLowerCase().includes('discussion')) {
+          currentSection = 'discussion';
+        } else if (title.toLowerCase().includes('conclusion')) {
+          currentSection = 'conclusion';
+        } else if (title.toLowerCase().includes('recommendation')) {
+          currentSection = 'recommendations';
+        } else if (title.toLowerCase().includes('reference')) {
+          currentSection = 'references';
+        }
+        
+        currentContent = [];
+        continue;
+      }
+      
+      // Remove markdown formatting
+      const cleanLine = trimmedLine
+        .replace(/^\*\s+/, '') // Remove bullet points
+        .replace(/^\d+\.\s+/, '') // Remove numbered lists
+        .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold
+        .replace(/\*(.*?)\*/g, '$1'); // Remove italic
+      
+      currentContent.push(cleanLine);
+    }
+    
+    // Save final section
+    if (currentContent.length > 0) {
+      const content = currentContent.join(' ').trim();
+      if (currentSection === 'objectives' || currentSection === 'recommendations') {
+        sections[currentSection] = content.split(/\d+\.|\*|-/).map(item => item.trim()).filter(item => item.length > 0);
+      } else if (currentSection === 'materials') {
+        sections[currentSection] = content.split(/[;,]/).map(item => item.trim()).filter(item => item.length > 0);
+      } else {
+        sections[currentSection] = content;
+      }
+    }
+    
+    // Add default abstract/page info
+    if (!sections.pages) {
+      sections.pages = `Generated on: ${new Date().toLocaleDateString()}\n\nAbstract: This comprehensive lab report presents the findings and analysis based on the provided experimental data.`;
+    }
+    
+    // Add default references if empty
+    if (sections.references.length === 0) {
+      sections.references = ['[Student should add relevant references here based on the specific experiment and subject matter]'];
+    }
+    
+    console.log('✅ AI text successfully parsed to JSON format');
+    return sections;
+    
+  } catch (error) {
+    console.error('Error parsing AI text to JSON:', error);
+    // Fallback to basic structure
+    return {
+      title: `${subject} Lab Report`,
+      introduction: aiText.substring(0, 500) + '...',
+      objectives: ['Analyze experimental data', 'Document findings'],
+      materials: ['Standard laboratory materials'],
+      procedures: 'Followed standard experimental procedures',
+      results: data.results || 'Experimental results obtained',
+      discussion: 'Results demonstrate significant findings',
+      conclusion: 'Experiment successfully demonstrated intended principles',
+      recommendations: ['Expand sample size for future studies'],
+      references: ['[Add relevant references]'],
+      pages: `Generated on: ${new Date().toLocaleDateString()}`
+    };
+  }
+}
+
 // Fallback report generation when Gemini AI is unavailable
 function generateFallbackFullReport(data) {
   const { parsedText, results, images, subject } = data;
@@ -88,75 +217,32 @@ function generateFallbackFullReport(data) {
   const currentDate = new Date().toLocaleDateString();
   const imageInfo = images && images.length > 0 ? `\n\nUploaded Images: ${images.length} file(s)` : '';
   
-  const fallbackReport = `# ${subject} Lab Report
-**Generated on:** ${currentDate}
+  // Generate structured JSON report instead of plain text
+  const fallbackReport = {
+    title: `${subject} Lab Report`,
+    introduction: `The experiment conducted involved systematic analysis of the provided materials and procedures. The objective was to gather meaningful data and draw scientific conclusions based on the observations and results obtained during the experimental process.`,
+    objectives: [
+      "Analyze experimental data systematically",
+      "Draw scientific conclusions from observations",
+      "Document methodology and results comprehensively"
+    ],
+    materials: parsedText ? [parsedText] : ["Standard laboratory equipment and materials as specified in the manual"],
+    procedures: parsedText || "Followed standard experimental procedures as outlined in the laboratory manual.",
+    results: `${results}${imageInfo}`,
+    discussion: `The results obtained from this experiment demonstrate significant findings that warrant detailed analysis. The observations indicate patterns and trends that are consistent with expected scientific principles. These findings contribute to our understanding of the subject matter and have implications for future research and applications in this field.`,
+    conclusion: `Based on the comprehensive analysis of the experimental data and observations, the following conclusions can be drawn: 1) The experiment successfully demonstrated the intended scientific principles, 2) The results provide valuable insights into the research question, 3) The methodology was appropriate for achieving the experimental objectives, 4) The data collected supports the stated hypotheses and research goals.`,
+    recommendations: [
+      "Consider expanding the sample size for more robust results",
+      "Implement additional control measures to minimize experimental error", 
+      "Explore variations in experimental parameters to broaden the scope of findings",
+      "Investigate related phenomena that emerged during the experiment",
+      "Develop more sophisticated analytical methods for data interpretation"
+    ],
+    references: ["[Student should add relevant references here based on the specific experiment and subject matter]"],
+    pages: `Generated on: ${currentDate}\n\nAbstract: This comprehensive lab report presents the findings and analysis based on the provided experimental data. The report includes detailed methodology, results analysis, and conclusions drawn from the experimental observations.`
+  };
 
-## Abstract
-This comprehensive lab report presents the findings and analysis based on the provided experimental data. The report includes detailed methodology, results analysis, and conclusions drawn from the experimental observations.
-
-## Introduction
-The experiment conducted involved systematic analysis of the provided materials and procedures. The objective was to gather meaningful data and draw scientific conclusions based on the observations and results obtained during the experimental process.
-
-## Materials and Methods
-Based on the manual excerpt provided, the following materials and procedures were utilized:
-
-${parsedText}
-
-## Results and Observations
-The experimental process yielded the following results and observations:
-
-${results}${imageInfo}
-
-## Detailed Analysis
-### Data Interpretation
-The results obtained from this experiment demonstrate significant findings that warrant detailed analysis. The observations indicate patterns and trends that are consistent with expected scientific principles.
-
-### Statistical Analysis
-While quantitative statistical analysis would require more detailed numerical data, the qualitative observations provide valuable insights into the experimental process and outcomes.
-
-### Error Analysis
-Potential sources of error in this experiment may include measurement uncertainties, environmental factors, and procedural variations. These factors should be considered when interpreting the results.
-
-## Discussion
-### Key Findings
-The experiment successfully demonstrated the intended scientific concepts and principles. The results align with theoretical expectations and provide meaningful data for analysis.
-
-### Scientific Implications
-These findings contribute to our understanding of the subject matter and have implications for future research and applications in this field.
-
-### Limitations
-The study may have limitations related to sample size, measurement precision, and experimental conditions. These limitations should be considered when generalizing the results.
-
-## Conclusions
-Based on the comprehensive analysis of the experimental data and observations, the following conclusions can be drawn:
-
-1. The experiment successfully demonstrated the intended scientific principles
-2. The results provide valuable insights into the research question
-3. The methodology was appropriate for achieving the experimental objectives
-4. The data collected supports the stated hypotheses and research goals
-
-## Recommendations
-### For Future Experiments
-- Consider expanding the sample size for more robust results
-- Implement additional control measures to minimize experimental error
-- Explore variations in experimental parameters to broaden the scope of findings
-
-### For Further Research
-- Investigate related phenomena that emerged during the experiment
-- Develop more sophisticated analytical methods for data interpretation
-- Consider interdisciplinary approaches to enhance research outcomes
-
-## References
-[Student should add relevant references here based on the specific experiment and subject matter]
-
-## Appendices
-Additional supporting materials, detailed calculations, and supplementary data should be included here as appropriate for the specific experiment.
-
----
-*This report was generated using AI-assisted technology. Students should review and customize the content to ensure accuracy and add specific details relevant to their experiment.*
-`;
-
-  console.log('✅ Fallback report generated successfully');
+  console.log('✅ Fallback JSON report generated successfully');
   return fallbackReport;
 }
 
@@ -259,14 +345,24 @@ async function handler(req, res) {
     console.log('Full report generated successfully');
     console.log('Generated content length:', generatedText.length);
     
-    // Return the generated full report
+    // Parse AI response into JSON format for ReportRenderer
+    let reportData;
+    if (typeof generatedText === 'string' && !geminiAvailable) {
+      // If we used fallback, it's already JSON
+      reportData = generatedText;
+    } else {
+      // Parse AI text response into structured JSON
+      reportData = parseAITextToJSON(generatedText, subject, validatedData);
+    }
+    
+    // Return the generated full report as JSON
     const response = {
       success: true,
-      content: generatedText.trim(),
+      content: reportData,
       metadata: {
         subject: subject,
         generatedAt: new Date().toISOString(),
-        contentLength: generatedText.trim().length,
+        contentLength: JSON.stringify(reportData).length,
         aiService: geminiAvailable ? 'gemini' : 'fallback',
         inputSummary: {
           parsedTextLength: parsedText.length,
