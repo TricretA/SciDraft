@@ -35,7 +35,6 @@ import { AdminAdmins } from './pages/admin/AdminAdmins'
 import { AdminNotifications } from './pages/admin/AdminNotifications'
 import { AdminSystemSettings } from './pages/admin/AdminSystemSettings'
 import AdminReportDetails from './pages/admin/AdminReportDetails'
-import ReportRendererTest from './test/ReportRendererTest'
 import ErrorBoundary from './components/ErrorBoundary'
 import './App.css'
 
@@ -151,7 +150,6 @@ function AppRoutes() {
       <Route path="/payments" element={<ProtectedRoute><PaymentsPlans /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/support" element={<ProtectedRoute><FeedbackSupport /></ProtectedRoute>} />
-      <Route path="/test-renderer" element={<ReportRendererTest />} />
       
       {/* Admin Auth Routes */}
       <Route path="/admin/login" element={<AdminAuthRoute><AdminLogin /></AdminAuthRoute>} />
