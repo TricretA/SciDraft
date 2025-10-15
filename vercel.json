@@ -12,7 +12,7 @@
     {
       "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|txt))",
       "dest": "/$1"
-    },"explanation":"Add .txt files to static asset routing so gemini_prompt.txt can be served correctly"}
+    },
     {
       "src": "/(.*)",
       "dest": "/index.html"
