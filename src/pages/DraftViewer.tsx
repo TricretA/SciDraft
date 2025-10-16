@@ -407,7 +407,7 @@ export function DraftViewer() {
         margin: 0.5,
         filename: 'sci-draft.pdf',
         image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: { scale: 2 },
+        html2canvas: { scale: 2, dpi: 300, letterRendering: true },
         jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' as const }
       }
       
