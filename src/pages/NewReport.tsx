@@ -1330,7 +1330,7 @@ export function NewReport() {
                   {loading ? (
                     <>
                       <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      AI Generating Draft...
+                      Generating Draft...
                     </>
                   ) : (
                     <>
