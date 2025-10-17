@@ -962,7 +962,8 @@ export function DraftViewer() {
           {!fullReportGenerated ? (
             <button
               onClick={handleGetFullReport}
-              disabled={generatingFullReport}
+              disabled={true}
+              title="Coming Soon"
               className="flex-1 flex items-center justify-center space-x-3 px-6 py-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-xl text-white font-medium transition-all duration-200 shadow-lg hover:shadow-blue-500/25 disabled:opacity-50"
             >
               {generatingFullReport ? (

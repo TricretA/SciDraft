@@ -1221,6 +1221,7 @@ function extractTextFromResponse(result) {
       });
       return res.status(500).end(fallbackResponse);
     }
+    
     return res.status(statusCode).end(errorResponse);
   }
 }

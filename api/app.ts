@@ -9,9 +9,8 @@ require('dotenv').config();
 
 const authRouter = require('./routes/auth.js');
 const adminAuthRouter = require('./routes/adminAuth.js');
-const generateDraftRouter = require('./generate-draft.js');
+const generateDraftRouter = require('./generate-draft.ts');
 const generateFullReportRouter = require('./generate-full-report.js');
-
 
 const app = express();
 
@@ -26,6 +25,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/admin/auth', adminAuthRouter);
 app.use('/api/generate-draft', generateDraftRouter);
 app.use('/api/generate-full-report', generateFullReportRouter);
+
 
 /**
  * health

@@ -79,133 +79,56 @@ async function exponentialBackoff(fn, maxRetries = 3) {
   }
 }
 
-// Parse AI text response into structured JSON format
-function parseAITextToJSON(aiText, subject, data) {
-  console.log('Parsing AI text response to JSON format...');
-  
-  try {
-    // Try to extract JSON if AI returned JSON
-    if (aiText.trim().startsWith('{') && aiText.trim().endsWith('}')) {
-      return JSON.parse(aiText);
-    }
-    
-    // Parse markdown-style text into structured JSON
-    const lines = aiText.split('\n').filter(line => line.trim());
-    const sections = {
-      title: subject ? `${subject} Lab Report` : 'Lab Report',
-      introduction: '',
-      objectives: [],
-      materials: [],
-      procedures: '',
-      results: '',
-      discussion: '',
-      conclusion: '',
-      recommendations: [],
-      references: [],
-      pages: ''
-    };
-    
-    let currentSection = 'introduction';
-    let currentContent = [];
-    
-    for (const line of lines) {
-      const trimmedLine = line.trim();
-      
-      // Skip empty lines and horizontal rules
-      if (!trimmedLine || trimmedLine.match(/^---+$/)) continue;
-      
-      // Detect section headers
-      if (trimmedLine.match(/^#\s+(.+)$/)) {
-        // Save previous section
-        if (currentContent.length > 0) {
-          const content = currentContent.join(' ').trim();
-          if (currentSection === 'objectives' || currentSection === 'recommendations') {
-            sections[currentSection] = content.split(/\d+\.|\*|-/).map(item => item.trim()).filter(item => item.length > 0);
-          } else if (currentSection === 'materials') {
-            sections[currentSection] = content.split(/[;,]/).map(item => item.trim()).filter(item => item.length > 0);
-          } else {
-            sections[currentSection] = content;
-          }
-        }
-        
-        // Start new section
-        const title = trimmedLine.replace(/^#\s+/, '');
-        if (title.toLowerCase().includes('abstract')) {
-          currentSection = 'pages';
-        } else if (title.toLowerCase().includes('introduction')) {
-          currentSection = 'introduction';
-        } else if (title.toLowerCase().includes('material')) {
-          currentSection = 'materials';
-        } else if (title.toLowerCase().includes('method') || title.toLowerCase().includes('procedure')) {
-          currentSection = 'procedures';
-        } else if (title.toLowerCase().includes('result')) {
-          currentSection = 'results';
-        } else if (title.toLowerCase().includes('discussion')) {
-          currentSection = 'discussion';
-        } else if (title.toLowerCase().includes('conclusion')) {
-          currentSection = 'conclusion';
-        } else if (title.toLowerCase().includes('recommendation')) {
-          currentSection = 'recommendations';
-        } else if (title.toLowerCase().includes('reference')) {
-          currentSection = 'references';
-        }
-        
-        currentContent = [];
-        continue;
-      }
-      
-      // Remove markdown formatting
-      const cleanLine = trimmedLine
-        .replace(/^\*\s+/, '') // Remove bullet points
-        .replace(/^\d+\.\s+/, '') // Remove numbered lists
-        .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold
-        .replace(/\*(.*?)\*/g, '$1'); // Remove italic
-      
-      currentContent.push(cleanLine);
-    }
-    
-    // Save final section
-    if (currentContent.length > 0) {
-      const content = currentContent.join(' ').trim();
-      if (currentSection === 'objectives' || currentSection === 'recommendations') {
-        sections[currentSection] = content.split(/\d+\.|\*|-/).map(item => item.trim()).filter(item => item.length > 0);
-      } else if (currentSection === 'materials') {
-        sections[currentSection] = content.split(/[;,]/).map(item => item.trim()).filter(item => item.length > 0);
-      } else {
-        sections[currentSection] = content;
-      }
-    }
-    
-    // Add default abstract/page info
-    if (!sections.pages) {
-      sections.pages = `Generated on: ${new Date().toLocaleDateString()}\n\nAbstract: This comprehensive lab report presents the findings and analysis based on the provided experimental data.`;
-    }
-    
-    // Add default references if empty
-    if (sections.references.length === 0) {
-      sections.references = ['[Student should add relevant references here based on the specific experiment and subject matter]'];
-    }
-    
-    console.log('✅ AI text successfully parsed to JSON format');
-    return sections;
-    
-  } catch (error) {
-    console.error('Error parsing AI text to JSON:', error);
-    // Fallback to basic structure
-    return {
-      title: `${subject} Lab Report`,
-      introduction: aiText.substring(0, 500) + '...',
-      objectives: ['Analyze experimental data', 'Document findings'],
-      materials: ['Standard laboratory materials'],
-      procedures: 'Followed standard experimental procedures',
-      results: data.results || 'Experimental results obtained',
-      discussion: 'Results demonstrate significant findings',
-      conclusion: 'Experiment successfully demonstrated intended principles',
-      recommendations: ['Expand sample size for future studies'],
-      references: ['[Add relevant references]'],
-      pages: `Generated on: ${new Date().toLocaleDateString()}`
-    };
-  }
+function cleanGeminiResponse(rawResponse) { 
+  try { 
+    // Step 1: Parse the top-level JSON safely 
+    let parsed = JSON.parse(rawResponse); 
+ 
+    // Step 2: Detect if a nested JSON string exists inside any section 
+    // Sometimes Gemini dumps everything inside one property like "introduction" 
+    const nestedKeys = ["title", "introduction", "objectives", "materials", "procedure", "results", "discussion", "conclusion", "recommendations", "references"]; 
+ 
+    for (const key of nestedKeys) { 
+      if (typeof parsed[key] === "string" && parsed[key].trim().startsWith("{")) { 
+        try { 
+          // Try parsing nested JSON 
+          const inner = JSON.parse(parsed[key]); 
+ 
+          // Step 3: Merge inner keys into main parsed object 
+          for (const innerKey of Object.keys(inner)) { 
+            parsed[innerKey] = inner[innerKey]; 
+          } 
+        } catch (err) { 
+          // Not a valid nested JSON — skip 
+        } 
+      } 
+    } 
+ 
+    // Step 4: Normalize missing keys or wrong types 
+    const normalizeField = (val) => { 
+      if (Array.isArray(val)) return val.join("\n"); 
+      if (typeof val === "object") return JSON.stringify(val, null, 2); 
+      return val || "[STUDENT INPUT REQUIRED]"; 
+    }; 
+ 
+    const cleanOutput = { 
+      title: normalizeField(parsed.title), 
+      introduction: normalizeField(parsed.introduction), 
+      objectives: normalizeField(parsed.objectives), 
+      materials: normalizeField(parsed.materials), 
+      procedure: normalizeField(parsed.procedure), 
+      results: normalizeField(parsed.results), 
+      discussion: normalizeField(parsed.discussion), 
+      conclusion: normalizeField(parsed.conclusion), 
+      recommendations: normalizeField(parsed.recommendations), 
+      references: normalizeField(parsed.references), 
+    }; 
+ 
+    return cleanOutput; 
+  } catch (err) { 
+    console.error("❌ Failed to parse Gemini response:", err); 
+    return { error: "Invalid JSON format. Please recheck model output." }; 
+  } 
 }
 
 // Fallback report generation when Gemini AI is unavailable
@@ -352,7 +275,7 @@ async function handler(req, res) {
       reportData = generatedText;
     } else {
       // Parse AI text response into structured JSON
-      reportData = parseAITextToJSON(generatedText, subject, validatedData);
+      reportData = cleanGeminiResponse(generatedText);
     }
     
     // Return the generated full report as JSON
