@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { withAdminRole } from '../../contexts/AdminAuthContext'
+// Admin role protection removed
 import {
   Bell,
   AlertTriangle,
@@ -394,4 +394,4 @@ function AdminNotificationsComponent() {
 }
 
 // Export with Admin role protection
-export const AdminNotifications = withAdminRole(AdminNotificationsComponent, { requiredRole: 'Content Admin' })
+export const AdminNotifications = AdminNotificationsComponent

@@ -23,8 +23,7 @@ export function usePageTitle(title: string, suffix: string = 'SciDraft') {
       
         'Privacy Policy': 'Read SciDraft\'s privacy policy to understand how we protect and handle your personal information.',
         'Terms of Service': 'Review SciDraft\'s terms of service and user agreement for our academic writing platform.',
-        'Login': 'Sign in to your SciDraft account to access your lab reports and academic writing tools.',
-        'Sign Up': 'Create a new SciDraft account and start generating professional lab reports in minutes.',
+        // Auth pages removed
         'Payments': 'View SciDraft pricing plans and manage your subscription for unlimited lab report generation.',
         'Settings': 'Manage your SciDraft account settings, preferences, and profile information.',
         'Feedback': 'Provide feedback about your SciDraft experience and help us improve our platform.'

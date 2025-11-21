@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { useAdminAuth, withAdminRole } from '../../contexts/AdminAuthContext'
+import { useAdminAuth } from '../../contexts/AdminAuthContext'
 import {
   Settings,
   CreditCard,
@@ -609,4 +609,4 @@ function AdminSystemSettingsComponent() {
 }
 
 // Export with Super Admin role protection
-export const AdminSystemSettings = withAdminRole(AdminSystemSettingsComponent, { requiredRole: 'Super Admin' })
+export const AdminSystemSettings = AdminSystemSettingsComponent

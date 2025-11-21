@@ -48,11 +48,7 @@ export function AdminLayout() {
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
-  // Check if admin is authenticated
-  if (!admin) {
-    navigate('/admin/login')
-    return null
-  }
+  // Admin authentication removed; page accessible
 
   const handleSignOut = async () => {
     try {
@@ -64,12 +60,12 @@ export function AdminLayout() {
       localStorage.removeItem('admin_token');
       sessionStorage.clear();
       
-      // Redirect to admin login page
-      navigate('/admin/login');
+      // Redirect to default route
+      navigate('/new-report');
     } catch (error) {
       console.error('Logout failed:', error);
-      // Still redirect to login even if logout fails
-      navigate('/admin/login');
+      // Redirect to default even if logout fails
+      navigate('/new-report');
     }
   };
 
@@ -80,10 +76,7 @@ export function AdminLayout() {
     return location.pathname.startsWith(path)
   }
 
-  const filteredSidebarItems = sidebarItems.filter(item => {
-    if (item.adminOnly && admin.role !== 'Super Admin') return false
-    return true
-  })
+  const filteredSidebarItems = sidebarItems
 
   // Mock notifications - in real app, fetch from Supabase
   const notifications = [

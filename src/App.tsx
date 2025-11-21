@@ -1,12 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { AuthProvider } from './contexts/AuthContext'
 import { AdminAuthProvider, useAdminAuth } from './contexts/AdminAuthContext'
-import { LandingPage } from './pages/LandingPage'
-import { LoginPage } from './pages/auth/LoginPage'
-import { SignupPage } from './pages/auth/SignupPage'
-import { ResetPasswordPage } from './pages/auth/ResetPasswordPage'
-import AdminLogin from './pages/auth/AdminLogin'
-import { Dashboard } from './pages/Dashboard'
+// Removed Landing, Auth, and Dashboard pages
 import { NewReport } from './pages/NewReport'
 import { MyReports } from './pages/MyReports'
 import { ReportEditor } from './pages/ReportEditor'
@@ -39,93 +34,15 @@ import AdminReportDetails from './pages/admin/AdminReportDetails'
 import ErrorBoundary from './components/ErrorBoundary'
 import './App.css'
 
-function ProtectedRoute({ children, requireAuth = true }: { children: React.ReactNode; requireAuth?: boolean }) {
-  const { user, loading } = useAuth()
-  
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
-      </div>
-    )
-  }
-  
-  if (requireAuth && !user) {
-    return <Navigate to="/login" />
-  }
-  
-  return <>{children}</>
-}
+// Auth route guards removed
 
-function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
-  
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
-      </div>
-    )
-  }
-  
-  return user ? <Navigate to="/dashboard" /> : <>{children}</>
-}
-
-function AdminRoute({ children, requireRole }: { children: React.ReactNode; requireRole?: 'Super Admin' | 'Content Admin' | 'Support Admin' | ('Super Admin' | 'Content Admin' | 'Support Admin')[] }) {
-  const { admin, isLoading, hasRole } = useAdminAuth()
-  
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-blue-200">Loading admin panel...</p>
-        </div>
-      </div>
-    )
-  }
-  
-  if (!admin) {
-    return <Navigate to="/admin/login" />
-  }
-  
-  if (requireRole && !hasRole(requireRole)) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-4">Access Denied</h1>
-          <p className="text-blue-200 mb-6">You don't have permission to access this resource.</p>
-          <Navigate to="/admin/dashboard" />
-        </div>
-      </div>
-    )
-  }
-  
-  return <>{children}</>
-}
-
-function AdminAuthRoute({ children }: { children: React.ReactNode }) {
-  const { admin, isLoading } = useAdminAuth()
-  
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-blue-200">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-  
-  return admin ? <Navigate to="/admin/dashboard" /> : <>{children}</>
-}
+// Admin route guards removed
 
 function AppRoutes() {
   return (
     <Routes>
       {/* Public Routes */}
-      <Route path="/" element={<LandingPage />} />
+      <Route path="/" element={<Navigate to="/new-report" replace />} />
       <Route path="/about" element={<About />} />
       <Route path="/terms" element={<TermsOfService />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
@@ -135,29 +52,25 @@ function AppRoutes() {
       <Route path="/see-scidraft-in-action" element={<SeeSciDraftInAction />} />
       <Route path="/contact" element={<Contact />} />
       
-      {/* Auth Routes */}
-      <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
-      <Route path="/signup" element={<PublicRoute><SignupPage /></PublicRoute>} />
-      <Route path="/reset-password" element={<PublicRoute><ResetPasswordPage /></PublicRoute>} />
+      {/* Auth Routes removed */}
       
-      {/* Protected Routes */}
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/new-report" element={<ProtectedRoute><NewReport /></ProtectedRoute>} />
-      <Route path="/my-reports" element={<ProtectedRoute><MyReports /></ProtectedRoute>} />
-      <Route path="/report/:id" element={<ProtectedRoute><ReportEditor /></ProtectedRoute>} />
-      <Route path="/draft-viewer/:sessionId" element={<ProtectedRoute requireAuth={false}><DraftViewer /></ProtectedRoute>} />
+      {/* Protected Routes removed; pages now publicly accessible */}
+      {/* Dashboard route removed */}
+      <Route path="/new-report" element={<NewReport />} />
+      <Route path="/my-reports" element={<MyReports />} />
+      <Route path="/report/:id" element={<ReportEditor />} />
+      <Route path="/draft-viewer/:sessionId" element={<DraftViewer />} />
       <Route path="/report-viewer/:id" element={<ReportViewer />} />
-      <Route path="/feedback" element={<ProtectedRoute><Feedback /></ProtectedRoute>} />
-      <Route path="/payments" element={<ProtectedRoute><PaymentsPlans /></ProtectedRoute>} />
-      <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-      <Route path="/support" element={<ProtectedRoute><FeedbackSupport /></ProtectedRoute>} />
+      <Route path="/feedback" element={<Feedback />} />
+      <Route path="/payments" element={<PaymentsPlans />} />
+      <Route path="/settings" element={<Settings />} />
+      <Route path="/support" element={<FeedbackSupport />} />
 
       
-      {/* Admin Auth Routes */}
-      <Route path="/admin/login" element={<AdminAuthRoute><AdminLogin /></AdminAuthRoute>} />
+      {/* Admin Auth Routes removed */}
       
       {/* Admin Routes */}
-      <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
+      <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<AdminDashboard />} />
         <Route path="dashboard" element={<AdminDashboard />} />
         <Route path="users" element={<AdminUsers />} />
@@ -167,8 +80,8 @@ function AppRoutes() {
         <Route path="feedback" element={<AdminFeedback />} />
         <Route path="prompts" element={<AdminPrompts />} />
         <Route path="notifications" element={<AdminNotifications />} />
-        <Route path="admins" element={<AdminRoute requireRole="Super Admin"><AdminAdmins /></AdminRoute>} />
-        <Route path="system" element={<AdminRoute requireRole="Super Admin"><AdminSystemSettings /></AdminRoute>} />
+        <Route path="admins" element={<AdminAdmins />} />
+        <Route path="system" element={<AdminSystemSettings />} />
       </Route>
     </Routes>
   )

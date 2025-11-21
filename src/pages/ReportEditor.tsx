@@ -362,7 +362,7 @@ export function ReportEditor() {
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Report Not Found</h2>
           <p className="text-gray-600 mb-4">The report you're looking for doesn't exist or you don't have access to it.</p>
           <button
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate('/new-report')}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             Back to Dashboard
@@ -380,7 +380,7 @@ export function ReportEditor() {
           <div className="flex items-center justify-between py-4">
             <div className="flex items-center">
               <button
-                onClick={() => navigate('/dashboard')}
+                onClick={() => navigate('/new-report')}
                 className="mr-4 p-2 text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <ArrowLeft className="h-5 w-5" />

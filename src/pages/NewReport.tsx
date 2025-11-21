@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { useReportStore } from '../stores/reportStore'
 import * as pdfjsLib from 'pdfjs-dist'
@@ -73,7 +72,8 @@ const subjects = [
 ]
 
 export function NewReport() {
-  const { user, loading: authLoading } = useAuth()
+  const user: any = null
+  const authLoading = false
   const navigate = useNavigate()
   const [currentSection, setCurrentSection] = useState<Section>('subject')
   const [parsing, setParsing] = useState(false)
@@ -83,30 +83,7 @@ export function NewReport() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [parsedText, setParsedText] = useState('')
   
-  // Authentication guard - redirect if not authenticated
-  useEffect(() => {
-    if (!authLoading && !user) {
-      console.log('User not authenticated, redirecting to login')
-      navigate('/login', { replace: true })
-    }
-  }, [user, authLoading, navigate])
-  
-  // Show loading while checking authentication
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-cyan-400 mx-auto mb-4" />
-          <p className="text-white/70">Checking authentication...</p>
-        </div>
-      </div>
-    )
-  }
-  
-  // Don't render if user is not authenticated
-  if (!user) {
-    return null
-  }
+  // Authentication removed: page is publicly accessible
   
   const [reportData, setReportData] = useState<NewReportState>({
     subject: '',
@@ -695,7 +672,7 @@ export function NewReport() {
         setCurrentSection('manual')
         break
       default:
-        navigate('/dashboard')
+        navigate('/new-report')
     }
   }
 

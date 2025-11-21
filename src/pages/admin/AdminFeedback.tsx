@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { withAdminRole } from '../../contexts/AdminAuthContext'
 import {
   MessageSquare,
   Search,
@@ -435,7 +434,5 @@ function AdminFeedbackComponent() {
   )
 }
 
-// Export with Admin role protection - using actual admin roles from the database
-export const AdminFeedback = withAdminRole(AdminFeedbackComponent, {
-  requiredRole: ['Super Admin']
-})
+// Admin role protection removed
+export const AdminFeedback = AdminFeedbackComponent

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { withAdminRole } from '../../contexts/AdminAuthContext'
 import {
   Users,
   CreditCard,
@@ -699,5 +698,5 @@ function AdminDashboardComponent() {
   )
 }
 
-// Export with Admin role protection
-export const AdminDashboard = withAdminRole(AdminDashboardComponent, { requiredRole: 'Content Admin' })
+// Admin role protection removed
+export const AdminDashboard = AdminDashboardComponent

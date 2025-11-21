@@ -191,17 +191,7 @@ export function Settings() {
     
     setSaving(true)
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: passwordForm.new_password
-      })
-      
-      if (error) throw error
-      
-      setMessage({ type: 'success', text: 'Password updated successfully' })
-      setPasswordForm({ current_password: '', new_password: '', confirm_password: '' })
-    } catch (error) {
-      console.error('Error updating password:', error)
-      setMessage({ type: 'error', text: 'Failed to update password' })
+      setMessage({ type: 'error', text: 'Password updates are disabled (no authentication).' })
     } finally {
       setSaving(false)
     }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { useAdminAuth, withAdminRole } from '../../contexts/AdminAuthContext'
+import { useAdminAuth } from '../../contexts/AdminAuthContext'
 import {
   Users,
   Plus,
@@ -678,4 +678,4 @@ function AdminAdminsComponent() {
 }
 
 // Export with Super Admin role protection (Vanessa equivalent)
-export const AdminAdmins = withAdminRole(AdminAdminsComponent, { requiredRole: 'Super Admin' })
+export const AdminAdmins = AdminAdminsComponent

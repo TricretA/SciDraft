@@ -134,10 +134,10 @@ export function Feedback() {
                 Submit Another
               </button>
               <button
-                onClick={() => navigate('/dashboard')}
+                onClick={() => navigate('/new-report')}
                 className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-lg text-white font-medium transition-all duration-200"
               >
-                Back to Dashboard
+                Back to New Report
               </button>
             </motion.div>
           </div>
