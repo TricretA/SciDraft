@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://scidraft.com/</loc>
-    <lastmod>2024-01-22</lastmod>
+    <loc>https://scidraft.com/new-report</loc>
+    <lastmod>2025-11-21</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
@@ -30,24 +30,6 @@
     <lastmod>2024-01-22</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
-  </url>
-  <url>
-    <loc>https://scidraft.com/login</loc>
-    <lastmod>2024-01-22</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://scidraft.com/signup</loc>
-    <lastmod>2024-01-22</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://scidraft.com/dashboard</loc>
-    <lastmod>2024-01-22</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://scidraft.com/new-report</loc>

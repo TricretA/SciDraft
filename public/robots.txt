@@ -11,8 +11,7 @@ Allow: /about
 Allow: /contact
 Allow: /privacy-policy
 Allow: /terms-of-service
-Allow: /login
-Allow: /signup
+Allow: /new-report
 
 # Sitemap location
 Sitemap: https://scidraft.com/sitemap.xml
