@@ -7,11 +7,10 @@ SciDraft is an advanced web application that transforms manual lab data into pro
 ### Core Functionality
 - **AI-Powered Report Generation**: Transform manual lab data into professional reports
 - **Multiple Export Formats**: Support for PDF, DOCX, and other formats
-- **Secure Authentication**: Role-based access control with admin panel
 - **Responsive Design**: Works seamlessly across all devices
 
 ### User Features
-- **Dashboard**: Centralized workspace for managing reports
+- **New Report**: Default entry point to create a new lab report
 - **Report Editor**: Interactive editor for refining generated content
 - **Payment Integration**: Secure payment processing for premium features
 - **Template Management**: Pre-built and custom templates
@@ -35,7 +34,7 @@ SciDraft is an advanced web application that transforms manual lab data into pro
 ### Backend
 - **Node.js** with Express
 - **TypeScript** throughout
-- **Supabase** for database and authentication
+- **Supabase** for database (authentication removed)
 - **PostgreSQL** for data storage
 - **Zod** for validation
 
@@ -86,9 +85,8 @@ npm run dev
 Required environment variables:
 
 ```env
-# Database
+# Database (authentication removed; keep service role for backend)
 SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_KEY=your_supabase_service_key
 
 # AI Integration
@@ -132,10 +130,7 @@ npm start
 ## 🔒 Security Features
 
 ### Authentication & Authorization
-- JWT-based authentication
-- Role-based access control (RBAC)
-- Session management with timeout
-- Secure password hashing
+- Authentication removed; all pages are publicly accessible
 
 ### Data Protection
 - Input sanitization and validation
@@ -168,6 +163,12 @@ scidraft/
 ├── public/               # Static assets
 └── gallery/              # Brand assets
 ```
+
+## 🔄 Routing Changes
+
+- The default route `/` redirects to `/new-report`.
+- Landing, Dashboard, Login, Signup, and Reset Password pages have been removed.
+- All navigation links now point to `/new-report`.
 
 ## 🧪 Testing
 
