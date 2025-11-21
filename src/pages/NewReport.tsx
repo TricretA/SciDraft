@@ -312,10 +312,6 @@ export function NewReport() {
 
   const handleSaveAndContinue = async () => {
     // Validate required fields
-    if (!user) {
-      alert('Please log in to continue.')
-      return
-    }
     
     // Optional: Check if parsed data exists, but don't block saving
     const hasParseData = reportData.parsedData && parsedText.trim()
@@ -333,12 +329,6 @@ export function NewReport() {
     setSaving(true)
     
     try {
-      // Validate user authentication first
-      if (!user || !user.id) {
-        throw new Error('You must be logged in to save manual data. Please log in and try again.')
-      }
-      
-      console.log('User authenticated:', { userId: user.id, email: user.email })
       
       // Convert parsed text to structured JSONB format (handle cases with or without parsed data)
       const manualContent = {
@@ -367,59 +357,57 @@ export function NewReport() {
       }
       
       console.log('Attempting to save manual data:', {
-        userId: user.id,
         subject: reportData.subject,
         unitName: reportData.unitName,
         practicalTitle: reportData.practicalTitle,
         practicalNumber: practicalNum
       })
       
-      // Save to Supabase manual_templates table using new schema without practicals table dependency
-      const { data, error } = await supabase
-        .from('manual_templates')
-        .insert({
-          manual_url: reportData.uploadedFile ? `uploads/${reportData.uploadedFile.name}` : 'manual_upload_placeholder',
-          parsed_text: manualContent,
-          uploaded_by: user.id,
-          practical_title: reportData.practicalTitle.trim(),
-          practical_number: practicalNum,
-          unit_code: reportData.unitName?.trim() || 'UNKNOWN',
-          subject: reportData.subject
+      const toBase64 = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => {
+            const result = reader.result as string
+            const base64 = result.split(',')[1] || ''
+            resolve(base64)
+          }
+          reader.onerror = reject
+          reader.readAsDataURL(file)
         })
-        .select()
-      
-      if (error) {
-        console.error('Supabase error details:', {
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          hint: error.hint
-        })
-        
-        // Handle specific error types with detailed RLS error handling
-        if (error.code === '23505') {
-          throw new Error('A manual with this practical number already exists for this unit. Please use a different practical number.')
-        } else if (error.code === '42501' || error.message.includes('permission denied') || error.message.includes('RLS')) {
-          console.error('RLS Policy Violation:', error)
-          throw new Error('Permission denied: You do not have access to save manual data. This may be due to authentication issues or database permissions. Please log out and log back in, then try again.')
-        } else if (error.code === '23503') {
-          throw new Error('Database constraint violation: Some referenced data may be missing. Please contact support.')
-        } else if (error.code === '23502') {
-          throw new Error('Required field missing: Please ensure all required fields are filled.')
-        } else if (error.message.includes('network') || error.message.includes('fetch')) {
-          throw new Error('Network error: Please check your internet connection and try again.')
-        } else if (error.message.includes('JWT') || error.message.includes('token')) {
-          throw new Error('Authentication token expired: Please log out and log back in, then try again.')
-        } else {
-          throw new Error(`Database error (${error.code || 'unknown'}): ${error.message}. Please try again or contact support if the problem persists.`)
+      }
+
+      let filePayload: any = null
+      if (reportData.uploadedFile) {
+        const base64 = await toBase64(reportData.uploadedFile)
+        filePayload = {
+          name: reportData.uploadedFile.name,
+          type: reportData.uploadedFile.type,
+          base64
         }
       }
+
+      const response = await fetch('/api/manuals/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          unitName: reportData.unitName?.trim() || 'UNKNOWN',
+          practicalTitle: reportData.practicalTitle.trim(),
+          practicalNumber: practicalNum,
+          subject: reportData.subject,
+          manualContent,
+          file: filePayload
+        })
+      })
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}))
+        throw new Error(err.error || 'Failed to save manual data')
+      }
+      const apiData = await response.json()
       
-      if (!data || data.length === 0) {
+      if (!apiData || !apiData.success || !apiData.data) {
         throw new Error('No data was returned after saving. The operation may have failed. Please try again.')
       }
-      
-      console.log('Successfully saved to manual_templates:', data[0])
+      console.log('Successfully saved to manual_templates:', apiData.data)
       
       // Show success notification
       alert('✅ Manual data saved successfully! Proceeding to results entry.')
@@ -439,7 +427,7 @@ export function NewReport() {
       
       // Additional context for common issues
       if (errorMessage.includes('permission') || errorMessage.includes('RLS') || errorMessage.includes('authentication')) {
-        errorMessage += '\n\n💡 Troubleshooting tips:\n• Try logging out and logging back in\n• Check your internet connection\n• Contact support if the issue persists'
+        errorMessage += '\n\n• Check your internet connection\n• Contact support if the issue persists'
       }
       
       alert(`❌ Save Failed: ${errorMessage}`)
@@ -717,7 +705,6 @@ export function NewReport() {
       validFiles.push(file)
     }
 
-    // Upload to Supabase storage
     for (const file of validFiles) {
       const fileId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       const fileName = `${fileId}-${file.name}`
@@ -725,15 +712,27 @@ export function NewReport() {
       try {
         setUploadProgress(prev => ({ ...prev, [file.name]: 0 }))
         
-        const { data, error } = await supabase.storage
-          .from('drawings')
-          .upload(fileName, file, {
-            cacheControl: '3600',
-            upsert: false
+        const toBase64 = (f: File): Promise<string> => {
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => {
+              const result = reader.result as string
+              const base64 = result.split(',')[1] || ''
+              resolve(base64)
+            }
+            reader.onerror = reject
+            reader.readAsDataURL(f)
           })
-
-        if (error) {
-          throw error
+        }
+        const base64 = await toBase64(file)
+        const resp = await fetch('/api/storage/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file: { name: fileName, type: file.type, base64 } })
+        })
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}))
+          throw new Error(err.error || 'Upload failed')
         }
 
         setUploadProgress(prev => ({ ...prev, [file.name]: 100 }))

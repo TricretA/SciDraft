@@ -7,10 +7,10 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
-const authRouter = require('./routes/auth.js');
-const adminAuthRouter = require('./routes/adminAuth.js');
 const generateDraftRouter = require('./generate-draft.ts');
 const generateFullReportRouter = require('./generate-full-report.js');
+const uploadManualRouter = require('./manuals/upload.ts');
+const uploadDrawingRouter = require('./storage/upload-drawing.ts');
 
 const app = express();
 
@@ -21,10 +21,10 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 /**
  * API Routes
  */
-app.use('/api/auth', authRouter);
-app.use('/api/admin/auth', adminAuthRouter);
 app.use('/api/generate-draft', generateDraftRouter);
 app.use('/api/generate-full-report', generateFullReportRouter);
+app.use('/api/manuals', uploadManualRouter);
+app.use('/api/storage', uploadDrawingRouter);
 
 
 /**
