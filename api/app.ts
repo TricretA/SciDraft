@@ -11,6 +11,7 @@ const generateDraftRouter = require('./generate-draft.ts');
 const generateFullReportRouter = require('./generate-full-report.js');
 const uploadManualRouter = require('./manuals/upload.ts');
 const uploadDrawingRouter = require('./storage/upload-drawing.ts');
+const draftStatusRouter = require('./drafts/status.ts');
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use('/api/generate-draft', generateDraftRouter);
 app.use('/api/generate-full-report', generateFullReportRouter);
 app.use('/api/manuals', uploadManualRouter);
 app.use('/api/storage', uploadDrawingRouter);
+app.use('/api/drafts', draftStatusRouter);
 
 
 /**

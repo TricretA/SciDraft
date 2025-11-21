@@ -504,38 +504,20 @@ export function NewReport() {
           images: aiData.images
         },
         sessionInfo: {
-           sessionId: sessionId,
-           timestamp: Date.now(),
-           userId: user.id
-         }
+          sessionId: sessionId,
+          timestamp: Date.now(),
+          userId: null
+        }
       }
       
       // Save to global state and session storage
       setReportData(completeInputData)
       console.log('Stored complete input data in global state:', completeInputData)
       
-      console.log('Creating draft record in Supabase...')
-      
-      // Create draft record in Supabase with exponential backoff
-      const draftRecord = await exponentialBackoff(async () => {
-        const { data, error } = await supabase
-          .from('drafts')
-          .insert({
-            session_id: sessionId,
-            user_id: user.id,
-            status: 'pending'
-          })
-          .select()
-          .single()
-        
-        if (error) throw error
-        return data
-      })
-      
-      console.log('Draft record created:', draftRecord)
+      console.log('Initiating draft generation request...')
       console.log('Sending data to Gemini AI for draft generation...')
       
-      // Call the API endpoint with session_id and user_id
+      // Call the API endpoint with session_id (anonymous)
       const response = await fetch('/api/generate-draft', {
         method: 'POST',
         headers: {
@@ -544,7 +526,7 @@ export function NewReport() {
         body: JSON.stringify({
           ...aiData,
           sessionId: sessionId,
-          user_id: user.id
+          user_id: null
         })
       })
       
@@ -606,31 +588,23 @@ export function NewReport() {
       // Wait a moment for the draft to be saved, then fetch it from Supabase
       console.log('Fetching saved draft from Supabase...')
       
-      // Fetch the saved draft from Supabase using exponential backoff
+      // Fetch the saved draft from backend using exponential backoff
       const draftData = await exponentialBackoff(async () => {
-        const { data, error } = await supabase
-          .from('drafts')
-          .select('*')
-          .eq('session_id', result.sessionId)
-          .eq('user_id', user.id)
-          .single()
-        
-        if (error) {
-          if (error.code === 'PGRST116') {
-            // Draft not found yet, throw error to trigger retry
-            throw new Error('Draft not ready yet, retrying...')
-          }
-          throw error
+        const resp = await fetch(`/api/drafts/status?sessionId=${encodeURIComponent(result.sessionId)}`)
+        if (!resp.ok) {
+          throw new Error('Draft not ready yet, retrying...')
         }
-        
-        if (data.status === 'pending') {
+        const payload = await resp.json()
+        if (!payload || !payload.success) {
+          throw new Error(payload?.error || 'Draft not ready yet, retrying...')
+        }
+        const data = payload.data
+        if (!data || data.status === 'pending') {
           throw new Error('Draft still processing, retrying...')
         }
-        
         if (data.status === 'failed') {
           throw new Error(data.error_message || 'Draft generation failed')
         }
-        
         return data
       })
       
