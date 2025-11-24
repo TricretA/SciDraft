@@ -3,6 +3,8 @@ const crypto = require('crypto')
 const { supabase } = require('../lib/supabase')
 
 const router = express.Router()
+const { FIXED_UNLOCK_AMOUNT_KSH } = require('./constants.ts')
+;(router as any).FIXED_UNLOCK_AMOUNT_KSH = FIXED_UNLOCK_AMOUNT_KSH
 
 function getMpesaConfig() {
   const cfg = {
@@ -149,13 +151,13 @@ router.post('/mpesa/initiate', async (req, res) => {
       Password: password,
       Timestamp: ts,
       TransactionType: cfg.transactionType,
-      Amount: 1,
+      Amount: FIXED_UNLOCK_AMOUNT_KSH,
       PartyA: msisdn,
       PartyB: shortCode,
       PhoneNumber: msisdn,
       CallBackURL: cfg.callbackUrl,
       AccountReference: `LAB REPORT`,
-      TransactionDesc: 'Payment KSH 1 for draft access'
+      TransactionDesc: 'Payment KSH 50 for draft access'
     }
     console.log('[MPESA_INITIATE] STK body:', { ...stkBody, Password: '[redacted]' })
 
@@ -210,7 +212,7 @@ router.post('/mpesa/initiate', async (req, res) => {
 
     const { error: insertError } = await supabase.from('payments').insert({
       user_id: userId,
-      amount: 1,
+      amount: FIXED_UNLOCK_AMOUNT_KSH,
       method: 'mpesa',
       status: 'pending',
       transaction_id: `${checkoutId}|${sessionId}|${stkBody.AccountReference}`,
@@ -226,11 +228,11 @@ router.post('/mpesa/initiate', async (req, res) => {
       action: 'payment_attempt',
       target_type: 'payment',
       target_id: null,
-      details: { sessionId, checkoutId, amount: 1, msisdn: masked },
+      details: { sessionId, checkoutId, amount: FIXED_UNLOCK_AMOUNT_KSH, msisdn: masked },
       timestamp: new Date().toISOString()
     })
 
-    res.status(200).json({ success: true, checkoutRequestID: checkoutId })
+    res.status(200).json({ success: true, checkoutRequestID: checkoutId, amount: FIXED_UNLOCK_AMOUNT_KSH })
   } catch (err: any) {
     const message = err?.message || 'Payment initiation error'
     console.error('[MPESA_INITIATE_ERROR]', message)
@@ -327,9 +329,9 @@ router.get('/mpesa/status', async (req, res) => {
         secure: true,
         maxAge: 30 * 60 * 1000
       })
-      return res.status(200).json({ success: true, status: 'success', mpesa_code: data.mpesa_code, phone_number: data.phone_number })
+      return res.status(200).json({ success: true, status: 'success', mpesa_code: data.mpesa_code, phone_number: data.phone_number, amount: FIXED_UNLOCK_AMOUNT_KSH })
     }
-    return res.status(200).json({ success: true, status: data.status, mpesa_code: data.mpesa_code, phone_number: data.phone_number })
+    return res.status(200).json({ success: true, status: data.status, mpesa_code: data.mpesa_code, phone_number: data.phone_number, amount: FIXED_UNLOCK_AMOUNT_KSH })
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Status error' })
   }

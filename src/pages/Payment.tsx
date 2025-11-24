@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CreditCard, Smartphone, Lock } from 'lucide-react'
 
+export const FIXED_UNLOCK_AMOUNT_KSH = 50
+
 export function validateKenyanLocal(msisdn: string) {
   const raw = msisdn.replace(/\s+/g, '')
   if (/^(?:07\d{8}|011\d{7})$/.test(raw)) return true
@@ -83,7 +85,7 @@ export function PaymentPage() {
         if (statusResp.ok && statusJson.success && statusJson.status === 'success' && statusJson.mpesa_code && statusJson.phone_number) {
           navigate(`/draft-viewer/${sessionId}`, { state: { receipt: {
             mpesaCode: statusJson.mpesa_code,
-            amount: 1,
+            amount: FIXED_UNLOCK_AMOUNT_KSH,
             phone: statusJson.phone_number || to254(phone),
             timestamp: new Date().toISOString()
           } } })
@@ -163,7 +165,7 @@ export function PaymentPage() {
                 transition={{ duration: 0.3 }}
               >
                 <h2 className="text-lg font-semibold mb-2">Enter details</h2>
-                <p className="text-white/70 mb-4">Amount: <span className="text-white font-medium">KSh 1</span></p>
+                <p className="text-white/70 mb-4" data-testid="amount-label">Amount: <span className="text-white font-medium">KSh {FIXED_UNLOCK_AMOUNT_KSH}</span></p>
                 <label htmlFor="phone" className="block text-sm font-medium mb-1">M-Pesa Phone Number</label>
                 <input
                   id="phone"

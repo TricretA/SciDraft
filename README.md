@@ -93,6 +93,14 @@ SUPABASE_SERVICE_KEY=your_supabase_service_key
 OPENAI_API_KEY=your_openai_api_key
 
 # Payment Processing
+# M-Pesa STK Push configuration (fixed amount: KSh 50)
+MPESA_CONSUMER_KEY=your_consumer_key
+MPESA_CONSUMER_SECRET=your_consumer_secret
+MPESA_SHORTCODE=your_short_code
+MPESA_PASSKEY=your_passkey
+MPESA_CALLBACK_URL=https://your-secure-callback-url
+MPESA_ENVIRONMENT=sandbox
+MPESA_TRANSACTION_TYPE=CustomerPayBillOnline
 STRIPE_PUBLIC_KEY=your_stripe_public_key
 STRIPE_SECRET_KEY=your_stripe_secret_key
 
@@ -100,6 +108,9 @@ STRIPE_SECRET_KEY=your_stripe_secret_key
 VITE_APP_URL=http://localhost:5173
 VITE_API_URL=http://localhost:3001
 ```
+
+### Payment & Pricing
+All draft unlock payments use a fixed amount of KSh 50 across frontend and backend. The `mpesa/initiate` endpoint returns `{ success, checkoutRequestID, amount: 50 }`, and payment records store `amount = 50`.
 
 ### Database Setup
 The application uses Supabase with the following main tables:
