@@ -783,7 +783,8 @@ function extractTextFromResponse(result) {
     console.log('Received response from Gemini AI');
     
     // Enhanced JSON parsing with multiple fallback strategies
-    let draftData;
+    type DraftSectionMap = { [key: string]: string };
+    let draftData: DraftSectionMap | null = null;
     let parseAttempt = 0;
     const maxParseAttempts = 4;
     
@@ -924,7 +925,7 @@ function extractTextFromResponse(result) {
          conclusion: fallbackSections.conclusion || '[STUDENT INPUT REQUIRED]',
          references: '[SUGGESTED_REFERENCE - STUDENT INPUT REQUIRED]',
          error_note: 'This draft was generated using fallback parsing due to AI response formatting issues. Please review and complete all sections marked with [STUDENT INPUT REQUIRED].'
-       };
+       } as DraftSectionMap;
        
        console.log('Created fallback draft structure with keys:', Object.keys(draftData));
      }
@@ -961,7 +962,7 @@ function extractTextFromResponse(result) {
      };
      
      // Create mapped draft data
-     const mappedDraftData = {};
+    const mappedDraftData: DraftSectionMap = {};
      
      // Map sections to expected keys
      for (const [sourceKey, expectedKey] of Object.entries(sectionMapping)) {
@@ -973,8 +974,9 @@ function extractTextFromResponse(result) {
      // Also preserve any existing correctly formatted keys
       const allExpectedSections = ['title', 'abstract', 'introduction', 'objectives', 'materials', 'procedures', 'results', 'discussion', 'recommendations', 'conclusion', 'references'];
       for (const section of allExpectedSections) {
-        if (draftData[section] && !mappedDraftData[section]) {
-          mappedDraftData[section] = draftData[section];
+        const value = draftData[section];
+        if (value && !mappedDraftData[section]) {
+          mappedDraftData[section] = value;
         }
       }
      

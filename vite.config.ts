@@ -8,9 +8,7 @@ export default defineConfig({
   plugins: [
     react({
       babel: {
-        plugins: [
-          'react-dev-locator',
-        ],
+        plugins: [],
       },
     }),
     tsconfigPaths(),
@@ -23,9 +21,10 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
+    strictPort: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:3002',
+        target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
         configure: (proxy, _options) => {
