@@ -1,6 +1,6 @@
 import React from 'react'
 import { motion } from 'framer-motion'
-import { BookOpen, Beaker, Sparkles } from 'lucide-react'
+import { BookOpen, Beaker, Sparkles, Download } from 'lucide-react'
 
 const steps = [
   {
@@ -20,6 +20,12 @@ const steps = [
     description: 'Get a clean draft with sections aligned to your manual and results.',
     icon: Sparkles,
     gradient: 'from-violet-500 via-purple-500 to-indigo-600'
+  },
+  {
+    title: 'Download',
+    description: 'Download your draft instantly as a PDF — clean and ready.',
+    icon: Download,
+    gradient: 'from-blue-500 to-purple-600'
   }
 ]
 
@@ -29,7 +35,7 @@ export function HowItWorks() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center">
           <h2 className="text-2xl sm:text-3xl font-bold text-white">How It Works</h2>
-          <p className="mt-3 text-white/80">Three simple steps to a structured lab report.</p>
+          <p className="mt-3 text-white/80">Four simple steps to a structured lab report.</p>
         </div>
 
         <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">

@@ -6,7 +6,8 @@ import { Footer } from '../components/Footer'
 
 export function LandingPage() {
   return (
-    <main className="relative min-h-screen bg-[#0b0b12] text-white">
+    <main className="relative min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
+      <div className="absolute inset-0 -z-10 opacity-60 gradient-animate" />
       <Header />
       <Hero />
       <HowItWorks />
@@ -14,4 +15,3 @@ export function LandingPage() {
     </main>
   )
 }
-
