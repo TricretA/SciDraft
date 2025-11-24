@@ -892,8 +892,8 @@ function extractTextFromResponse(result) {
      if (!draftData) {
        console.log('Creating fallback structured response...');
        
-       // Try to extract any recognizable content from the response
-       const fallbackSections = {};
+      // Try to extract any recognizable content from the response
+      const fallbackSections: Record<string, string> = {};
        
        // Look for common section patterns in the text
        const sectionPatterns = {
