@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const fs = require('fs');
 const path = require('path');
@@ -338,7 +339,7 @@ async function handler(req, res) {
     }
     // Validate input data
     const validatedData = validateInput(req.body);
-    const { parsedText, results, images, sessionId } = validatedData;
+    let { parsedText, results, images, sessionId } = validatedData;
     
     // Extract user_id from request body (optional for anonymous users)
     const { user_id } = req.body;
@@ -440,7 +441,29 @@ async function handler(req, res) {
     
     // Format the user input
     const imageInfo = formatImagesForAI(images);
-    const userInput = `Manual Excerpt:\n${parsedText}\n\nStudent Results/Observations:\n${results}${imageInfo}`;
+    // Verify session payload exists in manual_templates
+    try {
+      const { data: manualRow, error: manualErr } = await supabase
+        .from('manual_templates')
+        .select('session_id, parsed_text, results')
+        .eq('session_id', sessionId)
+        .single()
+      if (manualErr) {
+        throw new Error(`Manual template not found for session_id: ${sessionId}`)
+      }
+      if (!manualRow.parsed_text || !manualRow.results) {
+        throw new Error('Required manual content or results missing. Please complete previous steps.')
+      }
+      // Override with authoritative data
+      parsedText = typeof manualRow.parsed_text === 'string' ? manualRow.parsed_text : JSON.stringify(manualRow.parsed_text)
+      results = manualRow.results
+    } catch (e) {
+      throw e
+    }
+
+    const variationKey = crypto.randomUUID();
+    console.log('Variation key for this draft generation:', variationKey);
+    const userInput = `VARIATION_KEY: ${variationKey}\nManual Excerpt:\n${parsedText}\n\nStudent Results/Observations:\n${results}${imageInfo}`;
     
     // Initialize Gemini model
     const model = genAI.getGenerativeModel({ 
@@ -454,6 +477,58 @@ async function handler(req, res) {
     
     // Create the complete prompt
     const fullPrompt = `${systemPrompt}\n\nInput Data:\n${userInput}`;
+
+    // Persist payload context to reports (idempotent)
+    try {
+      const upsert = await supabase
+        .from('reports')
+        .upsert({
+          session_id: sessionId,
+          results_json: { text: results },
+          metadata: {
+            source: 'draft',
+            parsed_text: parsedText,
+            images_count: images.length,
+            prompt_used: fullPrompt.substring(0, 1000),
+            variation_key: variationKey
+          },
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'session_id' })
+      if (upsert.error) {
+        console.warn('Reports upsert failed, attempting separate insert/update:', upsert.error.message)
+        // Try update
+        const update = await supabase
+          .from('reports')
+          .update({
+            results_json: { text: results },
+            metadata: {
+              source: 'draft', parsed_text: parsedText, images_count: images.length,
+              prompt_used: fullPrompt.substring(0, 1000), variation_key: variationKey
+            },
+            updated_at: new Date().toISOString()
+          })
+          .eq('session_id', sessionId)
+        if (update.error) {
+          // Fallback insert
+          const insert = await supabase
+            .from('reports')
+            .insert({
+              session_id: sessionId,
+              results_json: { text: results },
+              metadata: {
+                source: 'draft', parsed_text: parsedText, images_count: images.length,
+                prompt_used: fullPrompt.substring(0, 1000), variation_key: variationKey
+              },
+              status: 'draft_limited'
+            })
+          if (insert.error) {
+            console.warn('Reports insert also failed:', insert.error.message)
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Reports context persistence error:', (e as any).message)
+    }
     
     console.log('Sending request to Gemini AI...');
 
@@ -940,7 +1015,11 @@ function extractTextFromResponse(result) {
        draftData.title = 'Research Report Draft - Title Required';
      }
      
-     console.log('Draft validation completed. Final structure keys:', Object.keys(draftData));
+    console.log('Draft validation completed. Final structure keys:', Object.keys(draftData));
+    const canonicalSectionKeys = ['title','introduction','objectives','materials','procedures','results','discussion','conclusion','recommendations','references'];
+    const presentCanonical = canonicalSectionKeys.filter(k => typeof draftData[k] === 'string' && draftData[k].trim().length > 0);
+    const hasAllCanonical = presentCanonical.length === canonicalSectionKeys.length;
+    console.log('Schema compliance check:', { variationKey, hasAllCanonical, presentCanonicalCount: presentCanonical.length });
     
     // Comprehensive draft content validation using the new validation function
     try {
@@ -1132,6 +1211,31 @@ function extractTextFromResponse(result) {
       throw new Error('Failed to create valid JSON response');
     }
     
+    // Persist the draft payload context to reports table for full-report generation
+    try {
+      const { error: upsertError } = await supabase
+        .from('reports')
+        .upsert({
+          session_id: sessionId,
+          draft_json: JSON.parse(serializedDraft),
+          results_json: results ? { text: results } : null,
+          metadata: {
+            source: 'draft',
+            parsed_text: parsedText,
+            images_count: images.length,
+            prompt_used: fullPrompt.substring(0, 1000)
+          },
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'session_id' });
+      if (upsertError) {
+        console.warn('Reports upsert failed:', upsertError.message);
+      } else {
+        console.log('Persisted draft payload context to reports table');
+      }
+    } catch (e) {
+      console.warn('Failed to persist draft payload context:', e.message);
+    }
+
     return res.status(200).end(successResponse);
     
   } catch (error) {

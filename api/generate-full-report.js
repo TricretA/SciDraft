@@ -1,6 +1,29 @@
+import crypto from 'crypto';
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
+const Ajv = require('ajv');
+
+// Full report JSON schema (exported for tests)
+const reportSchema = {
+  type: 'object',
+  required: ['title','introduction','objectives','materials','procedures','results','discussion','conclusion','recommendations','references'],
+  properties: {
+    title: { type: 'string' },
+    introduction: { type: 'string' },
+    objectives: { type: 'array', items: { type: 'string' } },
+    materials: { type: 'array', items: { type: 'string' } },
+    procedures: { type: 'string' },
+    results: { type: 'string' },
+    discussion: { type: 'string' },
+    conclusion: { type: 'string' },
+    recommendations: { type: 'array', items: { type: 'string' } },
+    references: { oneOf: [
+      { type: 'array', items: { type: 'string' } },
+      { type: 'array', items: { type: 'object', properties: { author:{type:'string'}, year:{type:'string'}, title:{type:'string'}, edition:{type:'string'}, page:{type:'string'} }, required: ['author','year','title'] } }
+    ] }
+  }
+};
 
 // Initialize Gemini AI with fallback handling
 let genAI;
@@ -28,28 +51,14 @@ const supabase = createClient(
 // Validate and format input data
 function validateInput(requestBody) {
   const { parsedText, results, images, prompt, subject, sessionId } = requestBody;
-  
-  if (!parsedText || typeof parsedText !== 'string') {
-    throw new Error('Parsed text is required and must be a string');
-  }
-  
-  if (!results || typeof results !== 'string') {
-    console.warn('Results not provided - will generate report with manual content only');
-  }
-  
-  if (!prompt || typeof prompt !== 'string') {
-    throw new Error('AI prompt is required and must be a string');
-  }
-  
   if (!sessionId || typeof sessionId !== 'string') {
     throw new Error('Session ID is required for tracking');
   }
-  
   return {
-    parsedText: parsedText.trim(),
-    results: (results || '').trim(),
+    parsedText: typeof parsedText === 'string' ? parsedText.trim() : '',
+    results: typeof results === 'string' ? results.trim() : '',
     images: Array.isArray(images) ? images : [],
-    prompt: prompt.trim(),
+    prompt: typeof prompt === 'string' ? prompt.trim() : 'Return only valid JSON.',
     subject: subject || 'Biology',
     sessionId: sessionId.trim()
   };
@@ -79,56 +88,82 @@ async function exponentialBackoff(fn, maxRetries = 3) {
   }
 }
 
-function cleanGeminiResponse(rawResponse) { 
-  try { 
-    // Step 1: Parse the top-level JSON safely 
-    let parsed = JSON.parse(rawResponse); 
- 
-    // Step 2: Detect if a nested JSON string exists inside any section 
-    // Sometimes Gemini dumps everything inside one property like "introduction" 
-    const nestedKeys = ["title", "introduction", "objectives", "materials", "procedure", "results", "discussion", "conclusion", "recommendations", "references"]; 
- 
-    for (const key of nestedKeys) { 
-      if (typeof parsed[key] === "string" && parsed[key].trim().startsWith("{")) { 
-        try { 
-          // Try parsing nested JSON 
-          const inner = JSON.parse(parsed[key]); 
- 
-          // Step 3: Merge inner keys into main parsed object 
-          for (const innerKey of Object.keys(inner)) { 
-            parsed[innerKey] = inner[innerKey]; 
-          } 
-        } catch (err) { 
-          // Not a valid nested JSON — skip 
-        } 
-      } 
-    } 
- 
-    // Step 4: Normalize missing keys or wrong types 
-    const normalizeField = (val) => { 
-      if (Array.isArray(val)) return val.join("\n"); 
-      if (typeof val === "object") return JSON.stringify(val, null, 2); 
-      return val || "[STUDENT INPUT REQUIRED]"; 
-    }; 
- 
-    const cleanOutput = { 
-      title: normalizeField(parsed.title), 
-      introduction: normalizeField(parsed.introduction), 
-      objectives: normalizeField(parsed.objectives), 
-      materials: normalizeField(parsed.materials), 
-      procedure: normalizeField(parsed.procedure), 
-      results: normalizeField(parsed.results), 
-      discussion: normalizeField(parsed.discussion), 
-      conclusion: normalizeField(parsed.conclusion), 
-      recommendations: normalizeField(parsed.recommendations), 
-      references: normalizeField(parsed.references), 
-    }; 
- 
-    return cleanOutput; 
-  } catch (err) { 
-    console.error("❌ Failed to parse Gemini response:", err); 
-    return { error: "Invalid JSON format. Please recheck model output." }; 
-  } 
+function cleanGeminiResponse(rawResponse) {
+  try {
+    let text = typeof rawResponse === 'string' ? rawResponse : String(rawResponse || '');
+    text = text
+      .replace(/```json\s*/gi, '')
+      .replace(/```/g, '')
+      .replace(/^['"`]|['"`]$/g, '')
+      .replace(/,\s*([}\]])/g, '$1')
+      .replace(/\\"/g, '"')
+      .replace(/\n/g, '\n')
+      .trim();
+
+    let candidate = text;
+    const fenceMatch = candidate.match(/\{[\s\S]*\}/);
+    if (fenceMatch) candidate = fenceMatch[0];
+    candidate = candidate
+      .replace(/([{,])\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
+      .replace(/:\s*([^"\[\{][^,}\]]*[^,}\]\s])\s*([,}])/g, ':"$1"$2')
+      .replace(/,\s*}/g, '}')
+      .replace(/,\s*]/g, ']')
+      .trim();
+
+    let parsed;
+    try {
+      parsed = JSON.parse(candidate);
+    } catch (e) {
+      parsed = {};
+    }
+
+    const map = {
+      title: 'title',
+      introduction: 'introduction',
+      objectives: 'objectives',
+      aims: 'objectives',
+      materials: 'materials',
+      reagents: 'materials',
+      procedure: 'procedures',
+      procedures: 'procedures',
+      methods: 'procedures',
+      results: 'results',
+      discussion: 'discussion',
+      conclusion: 'conclusion',
+      recommendations: 'recommendations',
+      references: 'references'
+    };
+
+    const out = {};
+    Object.keys(parsed || {}).forEach(k => {
+      const t = map[k] || k;
+      out[t] = parsed[k];
+    });
+
+    const toArray = v => Array.isArray(v) ? v : (v ? [v] : []);
+    const toString = v => {
+      if (Array.isArray(v)) return v.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join('\n');
+      if (v && typeof v === 'object') return JSON.stringify(v, null, 2);
+      return typeof v === 'string' ? v : (v ? String(v) : '[STUDENT INPUT REQUIRED]');
+    };
+
+    const normalized = {
+      title: toString(out.title),
+      introduction: toString(out.introduction),
+      objectives: toArray(out.objectives).map(x => typeof x === 'string' ? x : JSON.stringify(x)),
+      materials: toArray(out.materials).map(x => typeof x === 'string' ? x : JSON.stringify(x)),
+      procedures: toString(out.procedures || out.procedure),
+      results: toString(out.results),
+      discussion: toString(out.discussion),
+      conclusion: toString(out.conclusion),
+      recommendations: toArray(out.recommendations).map(x => typeof x === 'string' ? x : JSON.stringify(x)),
+      references: Array.isArray(out.references) ? out.references : (out.references ? [out.references] : [])
+    };
+
+    return normalized;
+  } catch (err) {
+    return { error: 'Invalid JSON format' };
+  }
 }
 
 // Fallback report generation when Gemini AI is unavailable
@@ -198,11 +233,34 @@ async function handler(req, res) {
     console.log('Results length:', results.length);
     console.log('Images count:', images.length);
     
-    // Format the user input for full report generation
+    // Retrieve authoritative payload from manual_templates
+    let storedParsedText = parsedText;
+    let storedResults = results;
+    try {
+      const { data: manualRow, error: manualErr } = await supabase
+        .from('manual_templates')
+        .select('parsed_text, results')
+        .eq('session_id', sessionId)
+        .single();
+      if (manualErr) throw manualErr;
+      if (!manualRow || !manualRow.parsed_text || !manualRow.results) {
+        throw new Error('Missing manual content or results for this session');
+      }
+      storedParsedText = typeof manualRow.parsed_text === 'string' ? manualRow.parsed_text : JSON.stringify(manualRow.parsed_text);
+      storedResults = manualRow.results;
+    } catch (e) {
+      console.error('Payload retrieval failed:', e.message);
+      throw new Error('Unable to retrieve required data for full report');
+    }
+
     const imageInfo = formatImagesForAI(images);
-    const userInput = `Manual Excerpt:\n${parsedText}\n\nStudent Results/Observations:\n${results}${imageInfo}`;
+    const variationKey = crypto.randomUUID();
+    console.log('Variation key for this full report generation:', variationKey);
+    const userInput = `VARIATION_KEY: ${variationKey}\nManual Excerpt:\n${storedParsedText}\n\nStudent Results/Observations:\n${storedResults}${imageInfo}`;
     
     let generatedText;
+    let model;
+    const fullReportPrompt = `${prompt}\n\nReturn ONLY valid JSON with keys: {title, introduction, objectives[], materials[], procedures, results, discussion, conclusion, recommendations[], references[]}. No markdown, no code fences, no commentary.\n\nInput Data:\n${userInput}`;
     
     // Check if Gemini AI is available
     if (!geminiAvailable || !genAI) {
@@ -213,15 +271,13 @@ async function handler(req, res) {
       console.log('✅ Fallback report generated successfully');
     } else {
       // Create enhanced prompt for full report generation
-      const fullReportPrompt = `${prompt}\n\nIMPORTANT: Generate a comprehensive, detailed full report based on the provided data. This should be significantly more detailed than a draft, including:\n\n1. Detailed analysis of results\n2. In-depth discussion of findings\n3. Comprehensive conclusions\n4. Detailed recommendations\n5. Proper scientific formatting\n\nInput Data:\n${userInput}\n\nGenerate a complete, professional lab report with all sections fully developed.`;
-      
       // Initialize Gemini model with settings optimized for longer, detailed content
-      const model = genAI.getGenerativeModel({ 
+      model = genAI.getGenerativeModel({ 
         model: 'gemini-2.5-flash',
         generationConfig: {
-          temperature: 0.3, // Slightly higher for more creative full report
-          topP: 0.9,
-          maxOutputTokens: 8192, // Higher token limit for full reports
+          temperature: 0.2,
+          topP: 0.3,
+          maxOutputTokens: 8192,
         }
       });
       
@@ -270,22 +326,92 @@ async function handler(req, res) {
     
     // Parse AI response into JSON format for ReportRenderer
     let reportData;
-    if (typeof generatedText === 'string' && !geminiAvailable) {
-      // If we used fallback, it's already JSON
-      reportData = generatedText;
-    } else {
-      // Parse AI text response into structured JSON
-      reportData = cleanGeminiResponse(generatedText);
+    reportData = typeof generatedText === 'object' ? generatedText : cleanGeminiResponse(generatedText);
+
+    const ajv = new Ajv({ allErrors: true });
+    let valid = ajv.validate(reportSchema, reportData);
+    if (!valid) {
+      if (geminiAvailable && model) {
+        const retryPrompt = `${fullReportPrompt}\n\nReturn ONLY valid JSON.`;
+        let retryResult;
+        try {
+          const timeoutPromise = new Promise((_, reject) => { setTimeout(() => reject(new Error('timeout')), 30000); });
+          retryResult = await Promise.race([model.generateContent(retryPrompt), timeoutPromise]);
+          const retryText = retryResult && retryResult.response ? retryResult.response.text() : '';
+          reportData = cleanGeminiResponse(retryText);
+          valid = ajv.validate(reportSchema, reportData);
+        } catch {}
+      }
+    }
+
+    if (!valid) {
+      reportData = {
+        title: subject + ' Lab Report',
+        introduction: '[STUDENT INPUT REQUIRED]',
+        objectives: [],
+        materials: [],
+        procedures: '[STUDENT INPUT REQUIRED]',
+        results: '[STUDENT INPUT REQUIRED]',
+        discussion: '[STUDENT INPUT REQUIRED]',
+        conclusion: '[STUDENT INPUT REQUIRED]',
+        recommendations: [],
+        references: []
+      };
     }
     
+    const canonicalKeys = ['title','introduction','objectives','materials','procedures','results','discussion','conclusion','recommendations','references'];
+    const presentCanonical = canonicalKeys.filter(k => reportData && typeof reportData[k] !== 'undefined');
+    const hasAllCanonical = presentCanonical.length === canonicalKeys.length;
+    console.log('Schema compliance check (full report):', { variationKey, hasAllCanonical, presentCanonicalCount: presentCanonical.length });
+    
     // Return the generated full report as JSON
+    const serialized = JSON.stringify(reportData);
+
+    let updateSuccess = false;
+    let attempts = 0;
+    while (!updateSuccess && attempts < 3) {
+      attempts++;
+      const timeoutPromise = new Promise((_, reject) => { setTimeout(() => reject(new Error('Database update timed out')), 10000); });
+      const updateQuery = supabase
+        .from('reports')
+        .update({
+          content: serialized,
+          subject: subject,
+          metadata: {
+            generatedAt: new Date().toISOString(),
+            aiService: geminiAvailable ? 'gemini' : 'fallback',
+            parsedTextLength: parsedText.length,
+            resultsLength: results.length,
+            imagesCount: images.length,
+            variation_key: variationKey
+          },
+          updated_at: new Date().toISOString()
+        })
+        .eq('session_id', sessionId)
+        .select('id, session_id, updated_at');
+      try {
+        const { data: updateResult, error: updateError } = await Promise.race([updateQuery, timeoutPromise]);
+        if (updateError) {
+          if (attempts === 3) throw updateError;
+          await new Promise(r => setTimeout(r, Math.pow(2, attempts) * 1000));
+        } else {
+          updateSuccess = true;
+          console.log('✅ Reports table updated for session_id:', sessionId);
+          console.log('Update result:', updateResult);
+        }
+      } catch (e) {
+        if (attempts === 3) throw e;
+        await new Promise(r => setTimeout(r, Math.pow(2, attempts) * 1000));
+      }
+    }
+
     const response = {
       success: true,
       content: reportData,
       metadata: {
         subject: subject,
         generatedAt: new Date().toISOString(),
-        contentLength: JSON.stringify(reportData).length,
+        contentLength: serialized.length,
         aiService: geminiAvailable ? 'gemini' : 'fallback',
         inputSummary: {
           parsedTextLength: parsedText.length,
@@ -336,3 +462,5 @@ router.post('/', handler);
 
 // Export the router as default
 module.exports = router;
+module.exports.cleanGeminiResponse = cleanGeminiResponse;
+module.exports.reportSchema = reportSchema;
