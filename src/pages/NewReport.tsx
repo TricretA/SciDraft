@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useReportStore } from '../stores/reportStore'
 import * as pdfjsLib from 'pdfjs-dist'
@@ -29,7 +29,9 @@ import {
   Sparkles,
   Image,
   X,
-  CheckCircle
+  CheckCircle,
+  Phone,
+  MessageCircle
 } from 'lucide-react'
 
 type Section = 'subject' | 'manual' | 'results'
@@ -94,6 +96,7 @@ export function NewReport() {
     parsedData: null,
     results: ''
   })
+  const [showContactModal, setShowContactModal] = useState(false)
 
   // Image upload state management
   const [uploadedImages, setUploadedImages] = useState<File[]>([])
@@ -408,7 +411,30 @@ export function NewReport() {
         throw new Error('No data was returned after saving. The operation may have failed. Please try again.')
       }
       console.log('Successfully saved to manual_templates:', apiData.data)
+      const savedSessionId = apiData.sessionId || apiData.data?.session_id
+      if (!savedSessionId) {
+        throw new Error('Failed to obtain session_id for manual template')
+      }
       
+      // Store session in state for later steps
+      const store = useReportStore.getState()
+      const existing = store.getReportData() || {
+        manualText: hasParseData ? parsedText : '',
+        parsedContent: hasParseData ? parsedText : '',
+        resultsJson: null,
+        userInputs: {
+          subject: reportData.subject,
+          unitName: reportData.unitName,
+          practicalTitle: reportData.practicalTitle,
+          practicalNumber: reportData.practicalNumber
+        },
+        sessionInfo: { sessionId: savedSessionId, timestamp: Date.now(), userId: null }
+      }
+      store.setReportData({
+        ...existing,
+        sessionInfo: { sessionId: savedSessionId, timestamp: Date.now(), userId: null }
+      })
+
       // Show success notification
       alert('✅ Manual data saved successfully! Proceeding to results entry.')
       
@@ -484,24 +510,71 @@ export function NewReport() {
     setLoading(true)
     
     try {
-      // Collect and validate data
-      const aiData = await collectDataForAI()
+      let sessionId = useReportStore.getState().currentReportData?.sessionInfo?.sessionId
+      let serverParsedText = ''
+      const templateId = (window as any).__selectedTemplateId || null
+
+      if (templateId) {
+        const importResp = await fetch('/api/manuals/import-template', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sessionId ? { templateId, sessionId } : { templateId })
+        })
+        const importJson = await importResp.json().catch(() => ({}))
+        if (!importResp.ok || !importJson?.success) {
+          throw new Error(importJson?.error || 'Failed to import template content')
+        }
+        sessionId = importJson.data?.session_id || sessionId
+        serverParsedText = importJson.data?.parsed_text || ''
+        if (!sessionId) {
+          throw new Error('Failed to obtain session_id from template import')
+        }
+        const { setReportData } = useReportStore.getState()
+        const current = useReportStore.getState().currentReportData
+        if (current) {
+          setReportData({
+            ...current,
+            sessionInfo: { sessionId, timestamp: Date.now(), userId: null }
+          })
+        }
+      }
+
+      if (!sessionId) {
+        throw new Error('Missing session_id. Please save manual details first.')
+      }
+
+      const images = uploadedImages.map(file => ({ name: file.name, size: file.size, type: file.type }))
+      const resultsText = reportData.results
+      if (!resultsText || !resultsText.trim()) {
+        throw new Error('Results are required. Please enter your experimental results before generating a draft.')
+      }
+
+      const finalParsedText = (parsedText && parsedText.trim()) || serverParsedText
+      if (!finalParsedText || !finalParsedText.trim()) {
+        throw new Error('No manual content available. Please select a template or upload and parse a manual.')
+      }
+
+      const saveResultsResp = await fetch('/api/manuals/results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, results: resultsText })
+      })
+      if (!saveResultsResp.ok) {
+        const err = await saveResultsResp.json().catch(() => ({}))
+        throw new Error(err.error || 'Failed to persist results')
+      }
       
-      // Generate unique session ID
-      const sessionId = crypto.randomUUID()
-      
-      // Store the complete input data in global state for full report generation
       const { setReportData } = useReportStore.getState()
       const completeInputData = {
-        manualText: aiData.parsedText,
-        parsedContent: aiData.parsedText, // For backward compatibility
-        resultsJson: aiData.results ? { rawResults: aiData.results } : null,
+        manualText: finalParsedText,
+        parsedContent: finalParsedText,
+        resultsJson: resultsText ? { rawResults: resultsText } : null,
         userInputs: {
           subject: reportData.subject,
           unitName: reportData.unitName,
           practicalTitle: reportData.practicalTitle,
           practicalNumber: reportData.practicalNumber,
-          images: aiData.images
+          images
         },
         sessionInfo: {
           sessionId: sessionId,
@@ -509,23 +582,16 @@ export function NewReport() {
           userId: null
         }
       }
-      
-      // Save to global state and session storage
       setReportData(completeInputData)
-      console.log('Stored complete input data in global state:', completeInputData)
       
-      console.log('Initiating draft generation request...')
-      console.log('Sending data to Gemini AI for draft generation...')
-      
-      // Call the API endpoint with session_id (anonymous)
       const response = await fetch('/api/generate-draft', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...aiData,
-          sessionId: sessionId,
+          parsedText: finalParsedText,
+          results: resultsText,
+          images,
+          sessionId,
           user_id: null
         })
       })
@@ -626,16 +692,7 @@ export function NewReport() {
   }
 
   const goBack = () => {
-    switch (currentSection) {
-      case 'manual':
-        setCurrentSection('subject')
-        break
-      case 'results':
-        setCurrentSection('manual')
-        break
-      default:
-        navigate('/new-report')
-    }
+    navigate('/')
   }
 
   const getStepNumber = () => {
@@ -741,6 +798,19 @@ export function NewReport() {
     return URL.createObjectURL(file)
   }
 
+  const location = useLocation()
+  useEffect(() => {
+    const state = (location && (location as any).state) || {}
+    const goToResults = !!state.goToResults
+    const selectedTemplateId = state.selectedTemplateId
+    if (selectedTemplateId !== undefined) {
+      ;(window as any).__selectedTemplateId = selectedTemplateId
+    }
+    const data = useReportStore.getState().getReportData()
+    if (goToResults && data && data.manualText) {
+      setCurrentSection('results')
+    }
+  }, [])
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
       {/* Animated Background Elements */}
@@ -819,7 +889,7 @@ export function NewReport() {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 relative z-10">
         <AnimatePresence mode="wait">
           {/* Subject Selection */}
           {currentSection === 'subject' && (
@@ -919,7 +989,7 @@ export function NewReport() {
                 transition={{ delay: 0.4 }}
               >
                 <div className="space-y-2">
-                  <label className="text-white/80 text-sm font-medium">Unit Name</label>
+                  <label className="text-white/80 text-sm font-medium">Unit Code</label>
                   <input
                     type="text"
                     value={reportData.unitName}
@@ -1294,6 +1364,46 @@ export function NewReport() {
           )}
         </AnimatePresence>
       </div>
+
+      {(
+        <div className="fixed bottom-0 left-0 right-0 z-20">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="mb-2"></div>
+          </div>
+          <div className="bg-white/10 backdrop-blur-lg border-t border-white/20">
+            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-3 py-4">
+                <a href="/privacy-policy" className="text-white/80 hover:text-white text-sm">Privacy Policy</a>
+                <a href="/terms-of-service" className="text-white/80 hover:text-white text-sm">Terms of Service</a>
+                <button onClick={() => setShowContactModal(true)} className="text-white/80 hover:text-white text-sm inline-flex items-center gap-2">
+                  <Phone className="w-4 h-4" /> Contact
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showContactModal && (
+        <div className="fixed inset-0 z-30 bg-black/60 flex items-center justify-center px-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
+            <div className="p-6 border-b flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-black">Contact Options</h3>
+              <button onClick={() => setShowContactModal(false)} className="p-2 text-black/60 hover:text-black">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <a href="tel:0748776354" className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 text-white rounded-xl">
+                <Phone className="w-5 h-5" /> Call Support
+              </a>
+              <a href="https://wa.me/254748776354" target="_blank" rel="noopener noreferrer" className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl">
+                <MessageCircle className="w-5 h-5" /> Chat Support
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
