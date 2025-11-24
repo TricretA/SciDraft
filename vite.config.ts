@@ -15,6 +15,11 @@ export default defineConfig({
     }),
     tsconfigPaths(),
   ],
+  test: {
+    environment: 'jsdom',
+    setupFiles: [],
+    css: true
+  },
   server: {
     host: true,
     port: 5173,
