@@ -51,6 +51,10 @@ export default function Templates() {
           const err = await resp.json().catch(() => ({}))
           throw new Error(err.error || 'Failed to load templates')
         }
+        const ct = resp.headers.get('content-type') || ''
+        if (!ct.includes('application/json')) {
+          throw new Error('Failed to load templates')
+        }
         const payload = await resp.json()
         const validated = (payload.data || []).map((d: any) => TemplateSchema.parse(d))
         if (!cancelled) {
