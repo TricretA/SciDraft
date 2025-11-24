@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
+import { CreditCard, Smartphone, Lock } from 'lucide-react'
 
 export function validateKenyanLocal(msisdn: string) {
   const raw = msisdn.replace(/\s+/g, '')
@@ -22,6 +24,9 @@ export function PaymentPage() {
   const [loading, setLoading] = useState(false)
   const [checkoutId, setCheckoutId] = useState<string | null>(null)
   const [timeoutReached, setTimeoutReached] = useState(false)
+  const [method, setMethod] = useState<'mpesa' | 'stripe' | null>('mpesa')
+  const [step, setStep] = useState<1 | 2 | 3>(1)
+  const [touched, setTouched] = useState(false)
 
   useEffect(() => {
     let timer: any
@@ -95,47 +100,154 @@ export function PaymentPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-white shadow-sm rounded-xl p-6 border border-gray-200">
-        <h1 className="text-xl font-semibold text-gray-900 mb-2">M-Pesa Payment</h1>
-        <p className="text-gray-600 mb-6">Payment Amount: KSH 1</p>
+    <div className="relative min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
+      <div className="absolute inset-0 -z-10 opacity-60 gradient-animate" />
+      <div className="mx-auto max-w-2xl px-4 py-10">
+        <div className="mb-2 flex items-center justify-between">
+          <h1 className="text-2xl font-semibold">Checkout</h1>
+          <div className="flex items-center gap-2 text-white/70">
+            <Lock className="h-4 w-4" />
+            <span className="text-sm">Secure payment</span>
+          </div>
+        </div>
+        <p className="mb-6 text-white/80 text-sm">Pay to unlock your full report and enable exports. You’ll get a prompt on your phone and access to the completed report with download options.</p>
 
-        <label className="block text-sm font-medium text-gray-700 mb-1">M-Pesa Phone Number</label>
-        <input
-          type="tel"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="0727921038 or 0111234567"
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-          disabled={loading}
-        />
-        {error && (
-          <p className="text-red-600 text-sm mt-2">{error}</p>
-        )}
+        <div className="sticky top-0 z-10 mb-6">
+          <div className="grid grid-cols-3 gap-2">
+            {[1,2,3].map((s) => (
+              <div key={s} className={`h-1 rounded ${s <= step ? 'bg-gradient-to-r from-blue-500 to-purple-600' : 'bg-white/10'}`} />
+            ))}
+          </div>
+          <div className="mt-2 flex justify-between text-xs text-white/70">
+            <span>Select Method</span>
+            <span>Enter Details</span>
+            <span>Confirm & Pay</span>
+          </div>
+        </div>
 
-        <button
-          onClick={startPayment}
-          disabled={loading}
-          className="mt-6 w-full inline-flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-4 py-2 rounded-lg disabled:opacity-50"
-        >
-          {loading ? (
-            <>
-              <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
-              <span>Processing...</span>
-            </>
-          ) : (
-            <>
-              <span>Pay Now</span>
-            </>
-          )}
-        </button>
+        <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-6 shadow-lg shadow-purple-500/10">
+          <AnimatePresence mode="wait">
+            {step === 1 && (
+              <motion.div
+                key="step1"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.3 }}
+              >
+                <h2 className="text-lg font-semibold mb-4">Choose payment method</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => { setMethod('mpesa'); setStep(2) }}
+                    className={`group rounded-xl border ${method==='mpesa' ? 'border-blue-400' : 'border-white/10'} bg-gradient-to-br from-slate-800/60 via-slate-900/60 to-slate-800/60 p-4 text-left hover:border-blue-400 transition`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Smartphone className="h-5 w-5 text-emerald-400" />
+                      <div>
+                        <div className="font-medium">M-Pesa (STK Push)</div>
+                        <div className="text-sm text-white/70">Fast mobile checkout</div>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </motion.div>
+            )}
 
-        {checkoutId && (
-          <p className="text-xs text-gray-500 mt-3">Checkout ID: {checkoutId}</p>
-        )}
-        {timeoutReached && (
-          <p className="text-xs text-amber-600 mt-3">Payment is taking longer than expected. You can retry.</p>
-        )}
+            {step === 2 && (
+              <motion.div
+                key="step2"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.3 }}
+              >
+                <h2 className="text-lg font-semibold mb-2">Enter details</h2>
+                <p className="text-white/70 mb-4">Amount: <span className="text-white font-medium">KSh 1</span></p>
+                <label htmlFor="phone" className="block text-sm font-medium mb-1">M-Pesa Phone Number</label>
+                <input
+                  id="phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => { setPhone(e.target.value); setTouched(true) }}
+                  placeholder="0727921038 or 0111234567"
+                  className={`w-full rounded-lg px-3 py-2 border bg-white/5 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${error && touched ? 'border-red-500 animate-shakeX' : 'border-white/20'}`}
+                  disabled={loading}
+                  aria-invalid={!!error}
+                  aria-describedby={error ? 'phone-error' : undefined}
+                />
+                {error && (
+                  <p id="phone-error" role="alert" className="text-red-500 text-sm mt-2">{error}</p>
+                )}
+                <div className="mt-6 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setStep(1)}
+                    className="px-4 py-2 rounded-lg border border-white/20 text-white/90 hover:bg-white/10"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStep(3)}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 px-4 py-2 font-medium shadow-lg shadow-purple-500/20"
+                  >
+                    Continue
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {step === 3 && (
+              <motion.div
+                key="step3"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.3 }}
+              >
+                <h2 className="text-lg font-semibold mb-2">Confirm & pay</h2>
+                <div className="mb-4 text-sm text-white/80">You’ll receive an M-Pesa prompt on <span className="font-medium">{to254(phone) || 'your phone'}</span>.</div>
+                <button
+                  onClick={startPayment}
+                  disabled={loading}
+                  aria-busy={loading}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-4 py-2 font-medium disabled:opacity-50"
+                >
+                  {loading ? (
+                    <>
+                      <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+                      <span>Processing payment...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Smartphone className="h-4 w-4" />
+                      <span>Pay with M-Pesa</span>
+                    </>
+                  )}
+                </button>
+                {loading && (
+                  <p className="text-xs text-white/70 mt-3" aria-live="polite">Waiting for M-Pesa prompt and confirmation…</p>
+                )}
+                {checkoutId && (
+                  <p className="text-xs text-white/60 mt-3">Checkout ID: {checkoutId}</p>
+                )}
+                {timeoutReached && (
+                  <p className="text-xs text-amber-400 mt-3">Payment is taking longer than expected. You can retry.</p>
+                )}
+                <div className="mt-6 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setStep(2)}
+                    className="px-4 py-2 rounded-lg border border-white/20 text-white/90 hover:bg-white/10"
+                  >
+                    Back
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </div>
   )
