@@ -6,6 +6,7 @@ const router = express.Router()
 router.get('/', async (req, res) => {
   try {
     const { q = '', year = '', page = '1', pageSize = '12' } = req.query || {}
+    console.log('[templates] request', { q, year, page, pageSize })
     const from = (Number(page) - 1) * Number(pageSize)
     const to = from + Number(pageSize) - 1
 
@@ -22,11 +23,16 @@ router.get('/', async (req, res) => {
     }
 
     const { data, error, count } = await query.order('created_at', { ascending: false }).range(from, to)
-    if (error) return res.status(500).json({ success: false, error: error.message })
+    if (error) {
+      console.error('[templates] supabase error', error)
+      return res.status(500).json({ success: false, error: error.message })
+    }
 
+    console.log('[templates] response', { count })
     return res.status(200).json({ success: true, data: data || [], total: count || 0 })
   } catch (err) {
     const message = (err && err.message) ? err.message : 'Server error'
+    console.error('[templates] handler error', message)
     return res.status(500).json({ success: false, error: message })
   }
 })

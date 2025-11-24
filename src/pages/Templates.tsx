@@ -48,11 +48,20 @@ export default function Templates() {
         })
         const resp = await fetch(`/api/templates?${params.toString()}`)
         if (!resp.ok) {
-          const err = await resp.json().catch(() => ({}))
-          throw new Error(err.error || 'Failed to load templates')
+          const ct = resp.headers.get('content-type') || ''
+          const text = await resp.text().catch(() => '')
+          console.error('Templates fetch failed', { status: resp.status, ct, preview: text.slice(0, 120) })
+          let msg = 'Failed to load templates'
+          try {
+            const parsed = JSON.parse(text)
+            msg = parsed.error || msg
+          } catch {}
+          throw new Error(msg)
         }
         const ct = resp.headers.get('content-type') || ''
         if (!ct.includes('application/json')) {
+          const text = await resp.text().catch(() => '')
+          console.error('Templates non-JSON response', { status: resp.status, ct, preview: text.slice(0, 120) })
           throw new Error('Failed to load templates')
         }
         const payload = await resp.json()
