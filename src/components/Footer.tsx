@@ -9,13 +9,10 @@ export function Footer() {
           <div className="flex items-center gap-4 text-xs">
             <a href="/terms-of-service" className="text-white/80 hover:text-white">Terms</a>
             <a href="/privacy-policy" className="text-white/80 hover:text-white">Privacy Policy</a>
-            <a href="/about" className="text-white/80 hover:text-white">About</a>
-            <a href="/faqs" className="text-white/80 hover:text-white">FAQs</a>
-            <a href="/contact" className="text-white/80 hover:text-white">Contact</a>
+            <a href="/new-report#contact" className="text-white/80 hover:text-white">Contact</a>
           </div>
         </div>
       </div>
     </footer>
   )
 }
-
