@@ -32,7 +32,6 @@ const sidebarItems: SidebarItem[] = [
   { id: 'users', label: 'Users', icon: Users, path: '/admin/users' },
   { id: 'reports', label: 'Reports', icon: FileText, path: '/admin/reports' },
   { id: 'payments', label: 'Payments', icon: CreditCard, path: '/admin/payments' },
-  { id: 'feedback', label: 'Feedback', icon: MessageSquare, path: '/admin/feedback' },
   { id: 'prompts', label: 'Prompts', icon: Settings, path: '/admin/prompts' },
   { id: 'notifications', label: 'Notifications', icon: Bell, path: '/admin/notifications' },
   { id: 'admins', label: 'Admins', icon: Shield, path: '/admin/admins' },

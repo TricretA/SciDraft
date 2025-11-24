@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { FeedbackButton } from '../components/FeedbackButton'
+
 import { useReportStore } from '../stores/reportStore'
-import { SuccessNotification } from '../components/SuccessNotification'
+
 import {
   ArrowLeft,
   Download,
@@ -38,11 +38,6 @@ interface PaymentModalProps {
   loading: boolean
 }
 
-interface FeedbackModalProps {
-  isOpen: boolean
-  onClose: () => void
-  sessionId?: string
-}
 
 function PaymentModal({ isOpen, onClose, onPayment, loading }: PaymentModalProps) {
   const [phoneNumber, setPhoneNumber] = useState('')
@@ -163,63 +158,14 @@ function PaymentModal({ isOpen, onClose, onPayment, loading }: PaymentModalProps
   )
 }
 
-function FeedbackModal({ isOpen, onClose, sessionId }: FeedbackModalProps) {
-  if (!isOpen) return null
-
-  return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-        onClick={onClose}
-      >
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.9, opacity: 0 }}
-          className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-8 max-w-md w-full shadow-2xl"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="text-center">
-            <div className="mx-auto w-16 h-16 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center mb-4">
-              <CheckCircle className="h-8 w-8 text-white" />
-            </div>
-            <h3 className="text-xl font-bold text-white mb-2">Download Complete!</h3>
-            <p className="text-white/80 mb-6">
-              Your report has been downloaded successfully. We'd love to hear your feedback!
-            </p>
-            <div className="flex space-x-3">
-              <button
-                onClick={onClose}
-                className="flex-1 px-4 py-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white font-medium transition-all duration-200"
-              >
-                Maybe Later
-              </button>
-              <button
-                onClick={() => {
-                  onClose()
-                  window.location.href = `/feedback?reportId=${sessionId || ''}`
-                }}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-lg text-white font-medium transition-all duration-200 flex items-center justify-center space-x-2"
-              >
-                <Star className="h-4 w-4" />
-                <span>Give Feedback</span>
-              </button>
-            </div>
-          </div>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
-  )
-}
 
 export function DraftViewer() {
   console.log('[DRAFT_VIEWER] Component function called')
   const { user, loading: authLoading } = useAuth()
   const navigate = useNavigate()
   const { sessionId } = useParams<{ sessionId: string }>()
+  const location = useLocation() as any
+  const receipt = location?.state?.receipt || null
   const { getReportData, loadFromSessionStorage, validateReportData } = useReportStore()
   const [draftData, setDraftData] = useState<DraftData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -237,7 +183,6 @@ export function DraftViewer() {
     // Don't return early - let the component render and show the error state
   }
   const [showPaymentModal, setShowPaymentModal] = useState(false)
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false)
   const [paymentLoading, setPaymentLoading] = useState(false)
   const [generatingFullReport, setGeneratingFullReport] = useState(false)
   const [fullReportGenerated, setFullReportGenerated] = useState(false)
@@ -307,30 +252,18 @@ export function DraftViewer() {
       console.log(`[DRAFT_VIEWER] Loading draft for session: ${sessionId}, retry: ${retryCount}`)
       
       const result = await exponentialBackoff(async () => {
-        // Use maybeSingle() directly to handle cases where no rows or multiple rows might exist
-        // This prevents PGRST116 errors from occurring in the first place
-        const { data, error } = await supabase
-          .from('drafts')
-          .select('id, session_id, user_id, draft, status, created_at, updated_at')
-          .eq('session_id', sessionId)
-          .maybeSingle()
-
-        if (error) {
-          console.error(`[DRAFT_VIEWER] Query error: ${error.code} - ${error.message}`)
-          
-          if (error.code === 'PGRST301') {
-            throw new Error('Access denied to draft. Please ensure you have proper permissions.')
-          }
-          
-          throw error
+        const resp = await fetch(`/api/drafts/view?sessionId=${sessionId}`)
+        if (resp.status === 403) {
+          navigate(`/payment/${sessionId}`)
+          throw new Error('Payment required')
         }
-        
-        if (!data) {
-          console.log('[DRAFT_VIEWER] No draft found')
-          throw new Error('Draft not found')
+        if (!resp.ok) {
+          const text = await resp.text()
+          throw new Error(text || 'Failed to load draft')
         }
-        
-        return data
+        const json = await resp.json()
+        if (!json.success || !json.data) throw new Error('Draft not found')
+        return json.data
       }, maxRetries)
 
       if (!result) {
@@ -412,7 +345,7 @@ export function DraftViewer() {
       }
       
       await html2pdf().set(opt).from(element).save()
-      setShowFeedbackModal(true)
+      
     } catch (error) {
       console.error('Error downloading PDF:', error)
       alert('Failed to download PDF. Please try again.')
@@ -494,16 +427,37 @@ export function DraftViewer() {
         console.log('Retrieved stored data from global state:', storedData)
         
         // Use stored data if available and valid
-         if (storedData && validateReportData(storedData) && (storedData.manualText || storedData.parsedContent)) {
-           console.log('Using validated stored data from global state')
-           originalData = {
-             parsedText: storedData.manualText || storedData.parsedContent || '',
-             results: storedData.resultsJson ? JSON.stringify(storedData.resultsJson) : '',
-             images: storedData.userInputs?.images || [],
-             subject: storedData.userInputs?.subject || 'Biology'
-           }
-           dataSource = 'global_state'
+        if (storedData && validateReportData(storedData) && (storedData.manualText || storedData.parsedContent)) {
+          console.log('Using validated stored data from global state')
+          originalData = {
+            parsedText: storedData.manualText || storedData.parsedContent || '',
+            results: storedData.resultsJson ? JSON.stringify(storedData.resultsJson) : '',
+            images: storedData.userInputs?.images || [],
+            subject: storedData.userInputs?.subject || 'Biology'
+          }
+          dataSource = 'global_state'
         } else {
+          // Attempt to retrieve identical payload from reports table for full report
+          try {
+            const { data, error } = await supabase
+              .from('reports')
+              .select('metadata, results_json, subject')
+              .eq('session_id', sessionId)
+              .single()
+            if (!error && data) {
+              originalData = {
+                parsedText: data?.metadata?.parsed_text || '',
+                results: (data?.results_json && data.results_json.text) ? data.results_json.text : '',
+                images: [],
+                subject: data?.subject || 'Biology'
+              }
+              dataSource = 'reports_table'
+              console.log('Using payload from reports table')
+            }
+          } catch (repErr) {
+            console.warn('Reports table payload fetch failed:', repErr)
+          }
+
           console.log('No valid stored data found, attempting to retrieve from session storage')
           
           // Try to get from session storage as fallback
@@ -764,7 +718,7 @@ export function DraftViewer() {
               Refresh Page
             </button>
             <button
-              onClick={() => navigate('/my-reports')}
+              onClick={() => navigate('/new-report')}
               className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-lg text-white font-medium transition-all duration-200"
             >
               Back to My Reports
@@ -783,7 +737,7 @@ export function DraftViewer() {
           <h2 className="text-xl font-bold text-white mb-2">Draft Not Found</h2>
           <p className="text-white/70 mb-4">The requested draft could not be found.</p>
           <button
-            onClick={() => navigate('/my-reports')}
+            onClick={() => navigate('/new-report')}
             className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-lg text-white font-medium transition-all duration-200"
           >
             Back to My Reports
@@ -801,7 +755,7 @@ export function DraftViewer() {
           <h2 className="text-xl font-bold text-white mb-2">Draft Content Empty</h2>
           <p className="text-white/70 mb-4">The draft content is not available yet.</p>
           <button
-            onClick={() => navigate('/my-reports')}
+            onClick={() => navigate('/new-report')}
             className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-lg text-white font-medium transition-all duration-200"
           >
             Back to My Reports
@@ -826,7 +780,7 @@ export function DraftViewer() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <button
-              onClick={() => navigate('/my-reports')}
+              onClick={() => navigate('/new-report')}
               className="flex items-center space-x-2 text-white/70 hover:text-white transition-colors"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -856,6 +810,15 @@ export function DraftViewer() {
               </p>
             </div>
           </div>
+          {receipt && (
+            <div className="bg-green-500/10 border border-green-400/20 rounded-lg p-4 mb-4 text-white">
+              <div className="font-semibold">Payment Confirmed</div>
+              <div className="text-sm mt-1">MPESA CODE: {receipt.mpesaCode || 'N/A'}</div>
+              <div className="text-sm">Amount: KSH {receipt.amount}</div>
+              <div className="text-sm">Phone: {receipt.phone}</div>
+              <div className="text-sm">Timestamp: {new Date(receipt.timestamp).toLocaleString()}</div>
+            </div>
+          )}
 
           {/* Draft Content Display */}
           <div id="draft-content" className="p-4 bg-white">
@@ -959,64 +922,19 @@ export function DraftViewer() {
             )}
           </button>
 
-          {!fullReportGenerated ? (
-            <button
-              onClick={handleGetFullReport}
-              disabled={true}
-              title="Coming Soon"
-              className="flex-1 flex items-center justify-center space-x-3 px-6 py-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-xl text-white font-medium transition-all duration-200 shadow-lg hover:shadow-blue-500/25 disabled:opacity-50"
-            >
-              {generatingFullReport ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  <span>Generating...</span>
-                </>
-              ) : (
-                <>
-                  <FileText className="h-5 w-5" />
-                  <span>Get Full Report</span>
-                </>
-              )}
-            </button>
-          ) : (
-            <button
-              onClick={handleViewFullReport}
-              className="flex-1 flex items-center justify-center space-x-3 px-6 py-4 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 rounded-xl text-white font-medium transition-all duration-200 shadow-lg hover:shadow-purple-500/25"
-            >
-              <FileText className="h-5 w-5" />
-              <span>View Full Report</span>
-            </button>
-          )}
+          <button
+            disabled={true}
+            title="Get Full Report disabled"
+            className="flex-1 flex items-center justify-center space-x-3 px-6 py-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl text-white font-medium transition-all duration-200 shadow-lg disabled:opacity-50"
+          >
+            <FileText className="h-5 w-5" />
+            <span>Get Full Report</span>
+          </button>
         </motion.div>
       </div>
 
-      {/* Payment Modal */}
-      <PaymentModal
-        isOpen={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
-        onPayment={handlePayment}
-        loading={paymentLoading}
-      />
-
-      {/* Feedback Modal */}
-      <FeedbackModal
-        isOpen={showFeedbackModal}
-        onClose={() => setShowFeedbackModal(false)}
-        sessionId={sessionId}
-      />
       
-      {/* Success Notification */}
-      <SuccessNotification
-        isOpen={showSuccessNotification}
-        onClose={() => setShowSuccessNotification(false)}
-        onViewReport={() => {
-          setShowSuccessNotification(false)
-          handleViewFullReport()
-        }}
-      />
       
-      {/* Feedback Button */}
-      <FeedbackButton />
     </div>
   )
 }

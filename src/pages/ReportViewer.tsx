@@ -3,8 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { FeedbackButton } from '../components/FeedbackButton'
-import { FeedbackOverlay } from '../components/FeedbackOverlay'
+
 import { ReportRenderer } from '../components/ReportRenderer'
 // Removed ReactMarkdown - using same display method as drafts
 import {
@@ -184,12 +183,12 @@ export function ReportViewer() {
           <h2 className="text-xl font-bold text-white mb-2">Error Loading Report</h2>
           <p className="text-white/70 mb-4">{error}</p>
           <div className="flex space-x-4 justify-center">
-            <button
-              onClick={() => navigate('/my-reports')}
-              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-lg text-white font-medium transition-all duration-200"
-            >
-              Back to My Reports
-            </button>
+              <button
+                onClick={() => navigate('/new-report')}
+                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-lg text-white font-medium transition-all duration-200"
+              >
+                Back to New Report
+              </button>
             <button
               onClick={() => navigate(`/draft-viewer/${id}`)}
               className="px-6 py-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white font-medium transition-all duration-200"
@@ -209,12 +208,12 @@ export function ReportViewer() {
           <FileText className="h-12 w-12 text-white/50 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-white mb-2">Report Not Found</h2>
           <p className="text-white/70 mb-4">The requested report could not be found.</p>
-          <button
-            onClick={() => navigate('/my-reports')}
-            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-lg text-white font-medium transition-all duration-200"
-          >
-            Back to My Reports
-          </button>
+              <button
+                onClick={() => navigate('/new-report')}
+                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-lg text-white font-medium transition-all duration-200"
+              >
+                Back to New Report
+              </button>
         </div>
       </div>
     )
@@ -236,7 +235,7 @@ export function ReportViewer() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <button
-              onClick={() => navigate(`/draft-viewer/${id}`)}
+              onClick={() => navigate(`/`)}
               className="flex items-center space-x-2 text-white/70 hover:text-white transition-colors"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -317,14 +316,7 @@ export function ReportViewer() {
         </motion.div>
       </div>
 
-      {/* Feedback Overlay */}
-        <FeedbackOverlay
-          isOpen={showFeedbackModal}
-          onClose={() => setShowFeedbackModal(false)}
-        />
       
-      {/* Feedback Button */}
-      <FeedbackButton />
     </div>
   )
 }

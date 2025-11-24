@@ -23,7 +23,7 @@ import {
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import type { Report } from '../lib/supabase'
-import { FeedbackButton } from '../components/FeedbackButton'
+
 
 type SortField = 'title' | 'created_at' | 'updated_at' | 'status'
 type SortOrder = 'asc' | 'desc'
@@ -715,8 +715,7 @@ export function MyReports() {
         )}
       </div>
       
-      {/* Feedback Button */}
-      <FeedbackButton />
+      
     </div>
   )
 }
