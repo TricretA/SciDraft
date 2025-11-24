@@ -1,7 +1,7 @@
 /**
- * Vercel deploy entry handler, for serverless deployment, please don't modify this file
+ * Vercel serverless entry - routes /api/* to the Express app
  */
-const app = require('../dist/api/app.js').default;
+const app = require('./app.js');
 
 module.exports = function handler(req, res) {
   return app(req, res);
