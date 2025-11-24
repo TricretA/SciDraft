@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
- 
 
 const headlines = [
   'Struggling to explain what your results even mean? Get it done here',
@@ -18,29 +17,41 @@ export function Hero() {
   }, [])
 
   return (
-    <section id="hero" className="relative isolate pt-24 sm:pt-28 lg:pt-32">
+    <section
+      id="hero"
+      className="relative isolate min-h-screen flex items-center"
+      style={{
+        backgroundImage: 'url(/hero_image.jpg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundColor: '#0f172a'
+      }}
+    >
       <div className="absolute inset-0 -z-10 overflow-hidden">
         <motion.div
           className="absolute left-1/2 top-[-10%] h-96 w-96 -translate-x-1/2 rounded-full blur-3xl"
-          style={{ background: 'radial-gradient(closest-side, rgba(99,102,241,0.35), transparent)' }}
-          animate={{ y: [0, 20, -10, 0], opacity: [0.8, 1, 0.9, 0.8] }}
+          style={{ background: 'radial-gradient(closest-side, rgba(99,102,241,0.25), transparent)' }}
+          animate={{ y: [0, 20, -10, 0], opacity: [0.6, 0.8, 0.7, 0.6] }}
           transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
         />
         <motion.div
           className="absolute left-[10%] bottom-[-6%] h-[28rem] w-[28rem] rounded-full blur-3xl"
-          style={{ background: 'radial-gradient(closest-side, rgba(236,72,153,0.25), transparent)' }}
-          animate={{ x: [0, 10, -10, 0], opacity: [0.7, 0.9, 0.8, 0.7] }}
+          style={{ background: 'radial-gradient(closest-side, rgba(236,72,153,0.2), transparent)' }}
+          animate={{ x: [0, 10, -10, 0], opacity: [0.6, 0.8, 0.7, 0.6] }}
           transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
         />
         <motion.div
           className="absolute right-[5%] top-[10%] h-[22rem] w-[22rem] rounded-full blur-3xl"
-          style={{ background: 'radial-gradient(closest-side, rgba(34,197,94,0.25), transparent)' }}
-          animate={{ y: [0, -15, 10, 0], opacity: [0.7, 0.9, 0.8, 0.7] }}
+          style={{ background: 'radial-gradient(closest-side, rgba(34,197,94,0.2), transparent)' }}
+          animate={{ y: [0, -15, 10, 0], opacity: [0.6, 0.8, 0.7, 0.6] }}
           transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
         />
       </div>
 
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="absolute inset-0 bg-black/40" />
+
+      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center">
           <AnimatePresence mode="wait">
             <motion.h1
@@ -54,7 +65,7 @@ export function Hero() {
               {headlines[index]}
             </motion.h1>
           </AnimatePresence>
-          <p className="mt-4 text-base sm:text-lg text-white/80">
+          <p className="mt-4 text-base sm:text-lg text-white/85">
             Smart, structured drafts from your manual and results — fast and accurate.
           </p>
 
@@ -68,9 +79,7 @@ export function Hero() {
             <a
               href="/templates"
               className="rounded-md border border-white/20 bg-white/5 px-5 py-3 text-sm sm:text-base font-semibold text-white hover:bg-white/10 active:scale-[0.98] transition"
-            >
-              Manual Templates
-            </a>
+            >Manual Templates</a>
           </div>
         </div>
       </div>
