@@ -5,5 +5,3 @@ dist
 .trae
 .log
 .figma
-api/**
-!api/index.js
