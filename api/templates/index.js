@@ -5,6 +5,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { autoRefreshToken: false, persistSession: false } })
 
 export default async function handler(req, res) {
+  res.setHeader('Content-Type', 'application/json')
   const { q = '', year = '', page = '1', pageSize = '12' } = req.query || {}
   try {
     const from = (Number(page) - 1) * Number(pageSize)
