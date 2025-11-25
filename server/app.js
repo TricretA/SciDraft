@@ -29,7 +29,7 @@ const noCache = (req, res, next) => {
 
 app.use('/templates', templatesRouter);
 
-app.use('/api/health', (req, res) => {
+app.use('/health', (req, res) => {
   res.status(200).json({ success: true, message: 'ok' });
 });
 
