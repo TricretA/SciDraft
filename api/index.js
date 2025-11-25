@@ -2,7 +2,7 @@
  * Vercel serverless entry - single function that routes /api/* to the Express app
  */
 
-const app = require('../server/app.js');
+const app = require('../server/app.cjs');
 
 module.exports = function handler(req, res) {
   // Some Vercel rewrites may pass the request with the /api prefix stripped,
