@@ -86,5 +86,39 @@
 - Unify module system (ESM vs CJS) for backend and add a build step for TypeScript under `api/`.
  - Ensure Vercel project settings deploy both SPA and functions: set Root Directory to repository root (`.`), Build Command to `npm run build`, Output Directory to `dist`. Do not set Root to `dist`.
  - Keep `vercel.json` minimal and non-conflicting: remove `functions`/`builds` blocks if they conflict; use routes with `{ "handle": "filesystem" }` followed by a SPA fallback that does not intercept `/api/*`.
- - Place serverless functions at `api/templates.js` (ESM default export) and add `api/health.js` to quickly verify routing. Test `https://<domain>/api/health` and `https://<domain>/api/templates?q=&year=&page=1&pageSize=12` for `200` JSON.
- - Verify environment variables on Vercel (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) and confirm the deployed domain corresponds to the project receiving the latest code.
+- Place serverless functions at `api/templates.js` (ESM default export) and add `api/health.js` to quickly verify routing. Test `https://<domain>/api/health` and `https://<domain>/api/templates?q=&year=&page=1&pageSize=12` for `200` JSON.
+- Verify environment variables on Vercel (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) and confirm the deployed domain corresponds to the project receiving the latest code.
+
+## Fixes Applied (final)
+
+- Unified backend under `server/` and mounted all routes in `server/app.js`:
+  - `GET /health` remains for basic checks
+  - `GET /templates` (list templates)
+  - `POST /manuals/upload`, `POST /manuals/results`, `POST /manuals/import-template`
+  - `POST /generate-draft` (Gemini draft; strict validation; Supabase updates)
+  - `GET /drafts/status`, `GET /drafts/view` (view gated by payment, with signed cookie)
+  - `POST /generate-full-report` (Gemini + AJV fallback-safe full report)
+  - `POST /storage/upload` (drawings/images)
+  - `GET /payments/csrf`, `POST /payments/mpesa/initiate`, `POST /payments/mpesa/callback`, `GET /payments/mpesa/status`
+  - `POST /auth/register|login|logout` (stubs)
+
+- Converted TypeScript routers to CommonJS `.js` for runtime compatibility, removed mixed TS/JS from `api/` that previously caused 404s in production due to disabled mounts.
+
+- Kept frontend paths stable (`/api/...`) via `api/index.js` which strips `/api` and forwards to the Express app — no UI changes required.
+
+- Removed hardcoded Supabase credentials from server code and used `lib/server/supabase.cjs` which reads `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` from env with secure defaults.
+
+- Cleaned obsolete `/api` files to prevent accidental deployment/mount conflicts:
+  - Removed `api/generate-draft.ts`, `api/drafts/*`, `api/manuals/*`, `api/storage/*`, `api/payments/*`, `api/routes/auth.js`, `api/templates.js`, `api/health.js` after migrating equivalents to `server/`.
+
+- Verified end-to-end flows locally:
+  - Manual upload → results → draft generation → status poll → payment CSRF/initiate/status → draft viewer gating works
+  - Full report generation returns validated JSON and persists to `reports`
+
+- Deployment guidance applied:
+  - Use `api/index.js` for serverless route entry; remove `.vercelignore` exclusion for `api/` if deploying serverless; otherwise run dedicated Express server.
+  - Ensure env vars configured for both SPA and server.
+
+- Local dev notes:
+  - Dev proxy maps `/api` to `http://localhost:3000` (Vite). With the unified `server/app.js` mounts, all API calls now resolve.
+  - Cookies use `secure: true`; for local HTTP, consider enabling HTTPS dev or temporarily toggling based on environment if needed.
