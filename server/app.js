@@ -11,6 +11,11 @@ try {
 } catch {}
 
 const templatesRouter = require('./templates/list.js');
+const manualsRouter = require('./manuals/upload.js');
+const storageRouter = require('./storage/upload-drawing.js');
+const generateDraftRouter = require('./generate-draft.js');
+const draftStatusRouter = require('./drafts/status.js');
+const paymentsRouter = require('./payments/mpesa.js');
 // NOTE: Other routers disabled to avoid TS runtime issues during current fix
 
 const app = express();
@@ -28,6 +33,11 @@ const noCache = (req, res, next) => {
 };
 
 app.use('/templates', templatesRouter);
+app.use('/manuals', manualsRouter);
+app.use('/storage', storageRouter);
+app.use('/generate-draft', generateDraftRouter);
+app.use('/drafts', draftStatusRouter);
+app.use('/payments', paymentsRouter);
 
 app.use('/health', (req, res) => {
   res.status(200).json({ success: true, message: 'ok' });
