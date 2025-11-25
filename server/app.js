@@ -11,14 +11,14 @@ try {
 } catch {}
 
 const templatesRouter = require('./templates/list.js');
-const manualsRouter = require('./manuals/upload.js');
-const storageRouter = require('./storage/upload-drawing.js');
-const generateDraftRouter = require('./generate-draft.js');
-const generateFullReportRouter = require('./generate-full-report.js');
-const draftStatusRouter = require('./drafts/status.js');
-const draftViewRouter = require('./drafts/view.js');
+const manualsRouter = require('./manuals/index.js');
+const draftsStatusRouter = require('./drafts/status.js');
+const draftsViewRouter = require('./drafts/view.js');
+const generateDraftRouter = require('./drafts/generate-draft.js');
+const storageRouter = require('./storage/index.js');
+const generateFullReportRouter = require('./reports/generate-full-report.js');
 const paymentsRouter = require('./payments/mpesa.js');
-// NOTE: Other routers disabled to avoid TS runtime issues during current fix
+const authRouter = require('./routes/auth.js');
 
 const app = express();
 
@@ -36,12 +36,13 @@ const noCache = (req, res, next) => {
 
 app.use('/templates', templatesRouter);
 app.use('/manuals', manualsRouter);
-app.use('/storage', storageRouter);
+app.use('/drafts', draftsStatusRouter);
+app.use('/drafts', draftsViewRouter);
 app.use('/generate-draft', generateDraftRouter);
+app.use('/storage', storageRouter);
 app.use('/generate-full-report', generateFullReportRouter);
-app.use('/drafts', draftStatusRouter);
-app.use('/drafts', draftViewRouter);
 app.use('/payments', paymentsRouter);
+app.use('/auth', authRouter);
 
 app.use('/health', (req, res) => {
   res.status(200).json({ success: true, message: 'ok' });

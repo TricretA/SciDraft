@@ -19,7 +19,7 @@
     "supabase",
     "openai"
   ],
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
     "client:dev": "vite",
     "build": "vite build",

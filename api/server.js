@@ -1,7 +1,7 @@
 /**
  * local server entry file, for local development
  */
-const app = require('./app.js');
+const app = require('../server/app.js');
 
 /**
  * start server with port
