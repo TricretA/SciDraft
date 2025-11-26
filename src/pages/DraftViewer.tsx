@@ -92,10 +92,10 @@ function PaymentModal({ isOpen, onClose, onPayment, loading }: PaymentModalProps
 
           <div className="mb-6">
             <p className="text-white/80 mb-4">
-              To access the full report, please pay Ksh 50 via M-Pesa.
+              To access the full report, please pay Ksh 40 via M-Pesa.
             </p>
             <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-400/30 rounded-lg p-4">
-              <p className="text-green-300 font-semibold">Amount: Ksh 50</p>
+              <p className="text-green-300 font-semibold">Amount: Ksh 40</p>
               <p className="text-white/70 text-sm mt-1">Secure payment via M-Pesa STK Push</p>
             </div>
           </div>
@@ -146,7 +146,7 @@ function PaymentModal({ isOpen, onClose, onPayment, loading }: PaymentModalProps
                 ) : (
                   <>
                     <CreditCard className="h-4 w-4" />
-                    <span>Pay Ksh 50</span>
+                    <span>Pay Ksh 40</span>
                   </>
                 )}
               </button>

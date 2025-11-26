@@ -54,12 +54,10 @@ router.get('/view', async (req, res) => {
       .maybeSingle()
     if (draftErr) return res.status(500).json({ success: false, error: draftErr.message })
     if (!draft) return res.status(404).json({ success: false, error: 'Draft not found' })
-    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
     const { data: payment, error: payErr } = await supabase
       .from('payments')
       .select('status, transaction_id, created_at')
       .ilike('transaction_id', `%${sessionId}%`)
-      .gte('created_at', thirtyMinutesAgo)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -74,4 +72,3 @@ router.get('/view', async (req, res) => {
 })
 
 module.exports = router
-

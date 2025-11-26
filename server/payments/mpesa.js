@@ -152,7 +152,7 @@ router.post('/mpesa/initiate', async (req, res) => {
       PhoneNumber: msisdn,
       CallBackURL: cfg.callbackUrl,
       AccountReference: 'LAB REPORT',
-      TransactionDesc: 'Payment KSH 50 for draft access'
+      TransactionDesc: 'Payment KSH 40 for draft access'
     }
 
     const push = async () => {
