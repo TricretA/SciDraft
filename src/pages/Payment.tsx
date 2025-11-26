@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CreditCard, Smartphone, Lock } from 'lucide-react'
 
-export const FIXED_UNLOCK_AMOUNT_KSH = 50
+export const FIXED_UNLOCK_AMOUNT_KSH = 40
 
 export function validateKenyanLocal(msisdn: string) {
   const raw = msisdn.replace(/\s+/g, '')
