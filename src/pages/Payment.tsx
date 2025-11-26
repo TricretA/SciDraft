@@ -102,7 +102,7 @@ export function PaymentPage() {
   }
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
+    <div className="relative min-h-[100dvh] bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
       <div className="absolute inset-0 -z-10 opacity-60 gradient-animate" />
       <div className="mx-auto max-w-2xl px-4 py-10">
         <div className="mb-2 flex items-center justify-between">

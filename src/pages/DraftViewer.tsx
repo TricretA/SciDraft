@@ -659,7 +659,7 @@ export function DraftViewer() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
         <div className="text-center max-w-md mx-auto px-4">
           <div className="relative w-16 h-16 mx-auto mb-6">
             <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white"></div>
@@ -681,7 +681,7 @@ export function DraftViewer() {
     const isAccessDenied = error.includes('Access denied') || error.includes('permission')
     
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
         <div className="text-center max-w-md mx-auto px-4">
           <AlertCircle className="h-16 w-16 text-red-400 mx-auto mb-6" />
           <h2 className="text-2xl font-bold text-white mb-4">
@@ -731,7 +731,7 @@ export function DraftViewer() {
 
   if (!draftData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
         <div className="text-center">
           <FileText className="h-12 w-12 text-white/50 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-white mb-2">Draft Not Found</h2>
@@ -749,7 +749,7 @@ export function DraftViewer() {
 
   if (!draftData.draft) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
         <div className="text-center">
           <FileText className="h-12 w-12 text-white/50 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-white mb-2">Draft Content Empty</h2>
@@ -774,7 +774,7 @@ export function DraftViewer() {
   })
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       {/* Header */}
       <div className="border-b border-white/10 backdrop-blur-xl bg-white/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

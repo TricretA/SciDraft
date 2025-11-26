@@ -3,6 +3,15 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
 
+function setVH() {
+  document.documentElement.style.setProperty(
+    "--vh",
+    `${window.innerHeight * 0.01}px`
+  );
+}
+setVH();
+window.addEventListener("resize", setVH);
+
 // Add error handling for production debugging
 const rootElement = document.getElementById("root");
 if (!rootElement) {
