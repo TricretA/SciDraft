@@ -68,8 +68,8 @@ router.get('/csrf', (req, res) => {
   const token = crypto.randomBytes(16).toString('hex')
   res.cookie('csrf_token', token, {
     httpOnly: false,
-    sameSite: 'Strict',
-    secure: true,
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: process.env.NODE_ENV === 'production',
     maxAge: 30 * 60 * 1000
   })
   res.status(200).json({ success: true, token })
@@ -302,12 +302,12 @@ router.get('/mpesa/status', async (req, res) => {
       const secret = process.env.COOKIE_SECRET || 'scidraft-secret'
       const sig = crypto.createHmac('sha256', secret).update(sessionId).digest('hex')
       const token = Buffer.from(`${sessionId}.${sig}`).toString('base64')
-      res.cookie('paid_session', token, {
-        httpOnly: true,
-        sameSite: 'Strict',
-        secure: true,
-        maxAge: 30 * 60 * 1000
-      })
+  res.cookie('paid_session', token, {
+    httpOnly: true,
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 30 * 60 * 1000
+  })
       return res.status(200).json({ success: true, status: 'success', mpesa_code: data.mpesa_code, phone_number: data.phone_number, amount: FIXED_UNLOCK_AMOUNT_KSH })
     }
     return res.status(200).json({ success: true, status: data.status, mpesa_code: data.mpesa_code, phone_number: data.phone_number, amount: FIXED_UNLOCK_AMOUNT_KSH })
@@ -317,4 +317,3 @@ router.get('/mpesa/status', async (req, res) => {
 })
 
 module.exports = router
-
