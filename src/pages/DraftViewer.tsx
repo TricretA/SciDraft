@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+ 
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -60,19 +60,12 @@ function PaymentModal({ isOpen, onClose, onPayment, loading }: PaymentModalProps
   if (!isOpen) return null
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      <div
+        className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
         onClick={onClose}
       >
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.9, opacity: 0 }}
-          className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-8 max-w-md w-full shadow-2xl"
+        <div
+          className="bg-white/10 border border-white/20 rounded-2xl p-8 max-w-md w-full"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between mb-6">
@@ -84,7 +77,7 @@ function PaymentModal({ isOpen, onClose, onPayment, loading }: PaymentModalProps
             </div>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              className="p-2 rounded-lg"
             >
               <X className="h-5 w-5 text-white/70" />
             </button>
@@ -106,13 +99,13 @@ function PaymentModal({ isOpen, onClose, onPayment, loading }: PaymentModalProps
                 Phone Number
               </label>
               <div className="relative">
-                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-white/50" />
+                <Phone className="absolute left-3 top-3 h-5 w-5 text-white/50" />
                 <input
                   type="tel"
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                   placeholder="254XXXXXXXXX"
-                  className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-green-400/50 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none"
                   disabled={loading}
                 />
               </div>
@@ -128,7 +121,7 @@ function PaymentModal({ isOpen, onClose, onPayment, loading }: PaymentModalProps
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 px-4 py-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white font-medium transition-all duration-200"
+                className="flex-1 px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white font-medium"
                 disabled={loading}
               >
                 Cancel
@@ -136,11 +129,11 @@ function PaymentModal({ isOpen, onClose, onPayment, loading }: PaymentModalProps
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 rounded-lg text-white font-medium transition-all duration-200 flex items-center justify-center space-x-2 disabled:opacity-50"
+                className="flex-1 px-4 py-3 bg-green-600 rounded-lg text-white font-medium flex items-center justify-center space-x-2 disabled:opacity-50"
               >
                 {loading ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4" />
                     <span>Processing...</span>
                   </>
                 ) : (
@@ -152,9 +145,8 @@ function PaymentModal({ isOpen, onClose, onPayment, loading }: PaymentModalProps
               </button>
             </div>
           </form>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+        </div>
+      </div>
   )
 }
 
@@ -659,11 +651,10 @@ export function DraftViewer() {
 
   if (loading) {
     return (
-      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-slate-900 flex items-center justify-center">
         <div className="text-center max-w-md mx-auto px-4">
           <div className="relative w-16 h-16 mx-auto mb-6">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white"></div>
-            <div className="absolute inset-0 rounded-full border-t-2 border-purple-400 animate-spin" style={{animationDelay: '-0.5s'}}></div>
+            <div className="rounded-full h-16 w-16 border-2 border-white"></div>
           </div>
           <h2 className="text-2xl font-bold text-white mb-3">Loading Draft</h2>
           <p className="text-white/70 mb-4">Please wait while we fetch your draft...</p>
@@ -681,7 +672,7 @@ export function DraftViewer() {
     const isAccessDenied = error.includes('Access denied') || error.includes('permission')
     
     return (
-      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-slate-900 flex items-center justify-center">
         <div className="text-center max-w-md mx-auto px-4">
           <AlertCircle className="h-16 w-16 text-red-400 mx-auto mb-6" />
           <h2 className="text-2xl font-bold text-white mb-4">
@@ -731,7 +722,7 @@ export function DraftViewer() {
 
   if (!draftData) {
     return (
-      <div className="min-h-[100dvh] bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-slate-900 flex items-center justify-center">
         <div className="text-center">
           <FileText className="h-12 w-12 text-white/50 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-white mb-2">Draft Not Found</h2>
@@ -774,9 +765,9 @@ export function DraftViewer() {
   })
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <div className="min-h-[100dvh] bg-slate-900">
       {/* Header */}
-      <div className="border-b border-white/10 backdrop-blur-xl bg-white/5">
+      <div className="border-b border-white/10 bg-black/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <button
@@ -794,11 +785,7 @@ export function DraftViewer() {
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Draft Content */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-8 mb-8 shadow-2xl"
-        >
+        <div className="bg-white/10 border border-white/20 rounded-2xl p-8 mb-8">
           <div className="flex items-center space-x-3 mb-6">
             <div className="p-2 bg-gradient-to-r from-blue-400 to-purple-500 rounded-lg">
               <FileText className="h-6 w-6 text-white" />
@@ -860,7 +847,7 @@ export function DraftViewer() {
                 </div>
               ) : draftData.status === 'pending' ? (
                 <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
+                  <div className="rounded-full h-8 w-8 border-2 border-blue-400 mx-auto mb-4"></div>
                   <div className="text-gray-600">Generating your draft...</div>
                   <div className="text-sm text-gray-500 mt-2">This may take a few moments</div>
                 </div>
@@ -876,15 +863,10 @@ export function DraftViewer() {
               )}
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* Instructions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-400/30 rounded-xl p-6 mb-8"
-        >
+        <div className="bg-black/20 border border-white/10 rounded-xl p-6 mb-8">
           <div className="flex items-start space-x-3">
             <AlertCircle className="h-6 w-6 text-amber-400 flex-shrink-0 mt-0.5" />
             <div>
@@ -895,23 +877,18 @@ export function DraftViewer() {
               </p>
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* Actions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="flex flex-col sm:flex-row gap-4"
-        >
+        <div className="flex flex-col sm:flex-row gap-4">
           <button
             onClick={handleDownloadPDF}
             disabled={downloadingPDF}
-            className="flex-1 flex items-center justify-center space-x-3 px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 rounded-xl text-white font-medium transition-all duration-200 shadow-lg hover:shadow-green-500/25 disabled:opacity-50"
+            className="flex-1 flex items-center justify-center space-x-3 px-6 py-4 bg-green-600 rounded-xl text-white font-medium disabled:opacity-50"
           >
             {downloadingPDF ? (
               <>
-                <Loader2 className="h-5 w-5 animate-spin" />
+                <Loader2 className="h-5 w-5" />
                 <span>Downloading...</span>
               </>
             ) : (
@@ -925,12 +902,12 @@ export function DraftViewer() {
           <button
             disabled={true}
             title="Get Full Report disabled"
-            className="flex-1 flex items-center justify-center space-x-3 px-6 py-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl text-white font-medium transition-all duration-200 shadow-lg disabled:opacity-50"
+            className="flex-1 flex items-center justify-center space-x-3 px-6 py-4 bg-blue-600 rounded-xl text-white font-medium disabled:opacity-50"
           >
             <FileText className="h-5 w-5" />
             <span>Get Full Report</span>
           </button>
-        </motion.div>
+        </div>
       </div>
 
       
