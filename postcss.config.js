@@ -2,7 +2,7 @@
 /** WARNING: DON'T EDIT THIS FILE */
 /** WARNING: DON'T EDIT THIS FILE */
 
-module.exports = {
+export default {
   plugins: {
     '@tailwindcss/postcss': {},
     autoprefixer: {},
